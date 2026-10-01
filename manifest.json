@@ -1,0 +1,19 @@
+{
+  "name": "Class Bunker — Universal Attendance Planner",
+  "short_name": "ClassBunker",
+  "description": "Curriculum-aware universal attendance planning application for college students. Bunk smart, stay eligible.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

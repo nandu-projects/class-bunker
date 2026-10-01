@@ -26,19 +26,27 @@ class ClassBunkerHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server():
     os.chdir(DIRECTORY)
-    with socketserver.TCPServer(("", PORT), ClassBunkerHandler) as httpd:
-        url = f"http://localhost:{PORT}"
-        print("=" * 60)
-        print("Class Bunker - Universal Attendance Planning App")
-        print("Tagline: Bunk smart. Stay eligible.")
-        print(f"Serving locally at: {url}")
-        print("Press Ctrl+C to stop the server.")
-        print("=" * 60)
+    socketserver.TCPServer.allow_reuse_address = True
+    port = PORT
+    for attempt in range(5):
         try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\nShutting down Class Bunker server...")
-            httpd.shutdown()
+            httpd = socketserver.TCPServer(("", port), ClassBunkerHandler)
+            break
+        except OSError:
+            port += 1
+    
+    url = f"http://localhost:{port}"
+    print("=" * 60)
+    print("Class Bunker - Universal Attendance Planning App")
+    print("Tagline: Bunk smart. Stay eligible.")
+    print(f"Serving locally at: {url}")
+    print("Press Ctrl+C to stop the server.")
+    print("=" * 60)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down Class Bunker server...")
+        httpd.shutdown()
 
 if __name__ == '__main__':
     run_server()

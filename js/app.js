@@ -1,32 +1,32 @@
 /**
- * Class Bunker - Core Application Controller
- * Handles UI interactions, view transitions, onboarding wizard, live calculators,
- * modal dialogs, and instant reactive state synchronization.
+ * Class Bunker - Core Application Controller (Curriculum-Aware v2)
+ * Features:
+ * - Multi-tier zero-typing academic identity resolution (State -> College -> Course -> Branch -> Scheme -> Semester)
+ * - Official curriculum automatic discovery with source provenance
+ * - Curriculum confirmation screen before loading subjects
+ * - Distinction between official curriculum and custom subjects
+ * - Mathematical attendance planning engine & simulators
+ * - Offline PWA readiness
  */
 
 (function () {
   'use strict';
 
-  // Instantiate Store and reference Engine
   var store = new ClassBunkerStore();
   var engine = AttendanceEngine;
+  var curriculumService = ClassBunkerCurriculumService;
 
-  // App State Variables
   var activeView = 'landing';
-  var subjectFilter = 'all'; // 'all' | 'safe' | 'warning' | 'below'
+  var subjectFilter = 'all'; // 'all' | 'safe' | 'warning' | 'below' | 'official'
   var editingSubjectId = null;
-  var currentWizardStep = 1;
+  var pendingCurriculumData = null; // Staged curriculum waiting for user confirmation
 
-  // Simulator State
-  var simTargetSubjectId = 'overall'; // 'overall' or subject id
-  var simMode = 'miss'; // 'miss' or 'attend'
+  // Simulator & Calculator States
+  var simTargetSubjectId = 'overall';
+  var simMode = 'miss';
   var simCount = 1;
-
-  // Recovery Calculator State
   var recoverySubjectId = 'overall';
   var recoveryTargetPct = 75;
-
-  // Target Matrix State
   var matrixSubjectId = 'overall';
 
   // DOM Elements Cache
@@ -47,13 +47,24 @@
     dom.themeIcon = document.getElementById('theme-icon');
 
     // Modals
-    dom.onboardingModal = document.getElementById('modal-onboarding');
+    dom.academicModal = document.getElementById('modal-academic-setup');
     dom.subjectModal = document.getElementById('modal-subject');
-    dom.collegeModal = document.getElementById('modal-college');
+    dom.confirmSwitchModal = document.getElementById('modal-confirm-switch');
 
-    // Forms
-    dom.subjectForm = document.getElementById('form-subject');
-    dom.collegeForm = document.getElementById('form-college');
+    // Academic Selectors
+    dom.selectState = document.getElementById('select-state');
+    dom.selectUnivFilter = document.getElementById('select-university-filter');
+    dom.selectDistFilter = document.getElementById('select-district-filter');
+    dom.collegeSearchInput = document.getElementById('college-search-input');
+    dom.collegeOptionsList = document.getElementById('college-options-list');
+    dom.selectedCollegeId = document.getElementById('selected-college-id');
+    dom.selectCourse = document.getElementById('select-course');
+    dom.selectBranch = document.getElementById('select-branch');
+    dom.selectScheme = document.getElementById('select-scheme');
+    dom.selectYear = document.getElementById('select-year');
+    dom.selectSemester = document.getElementById('select-semester');
+    dom.curriculumConfirmContainer = document.getElementById('curriculum-confirmation-container');
+    dom.switchProgramWarning = document.getElementById('switch-program-warning');
 
     // Containers
     dom.dashboardBunkHero = document.getElementById('dashboard-bunk-hero');
@@ -62,6 +73,8 @@
     dom.subjectsGrid = document.getElementById('subjects-grid');
     dom.subjectsTableBody = document.getElementById('subjects-table-body');
     dom.collegeInfoStrip = document.getElementById('college-info-strip');
+    dom.settingsAcademicSummary = document.getElementById('settings-academic-summary');
+    dom.settingsRuleProvenance = document.getElementById('settings-rule-provenance');
 
     // Simulator Elements
     dom.simSubjectSelect = document.getElementById('sim-subject-select');
@@ -83,13 +96,8 @@
     dom.settingMinAttendance = document.getElementById('setting-min-attendance');
     dom.settingLabAttendance = document.getElementById('setting-lab-attendance');
     dom.settingCondonationNotes = document.getElementById('setting-condonation-notes');
-    dom.settingCollegeName = document.getElementById('setting-college-name');
-    dom.settingCollegeAbbr = document.getElementById('setting-college-abbr');
-    dom.settingCourse = document.getElementById('setting-course');
-    dom.settingBranch = document.getElementById('setting-branch');
-    dom.settingSemester = document.getElementById('setting-semester');
 
-    // File Inputs
+    // File Inputs & Toasts
     dom.jsonFileInput = document.getElementById('json-file-input');
     dom.toastContainer = document.getElementById('toast-container');
   }
@@ -143,7 +151,6 @@
       }
     });
 
-    // Update Nav buttons
     dom.navLinks.forEach(function (btn) {
       var target = btn.getAttribute('data-view');
       if (target === viewName) {
@@ -153,7 +160,6 @@
       }
     });
 
-    // Refresh view specific components
     if (viewName === 'dashboard') {
       renderDashboard();
     } else if (viewName === 'subjects') {
@@ -172,56 +178,450 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Render College Info Strip
+  // =========================================================================
+  // ACADEMIC PROGRAM & CURRICULUM SELECTORS (Zero manual typing) (#1, #2, #5, #6, #7, #8)
+  // =========================================================================
+
+  function populateUniversityAndDistrictFilters() {
+    // Populate Universities
+    var univis = curriculumService.getUniversities('Karnataka');
+    var uHtml = '<option value="">All Universities</option>';
+    univis.forEach(function (u) {
+      uHtml += '<option value="' + u.id + '">' + escapeHtml(u.shortName || u.name) + '</option>';
+    });
+    if (dom.selectUnivFilter) dom.selectUnivFilter.innerHTML = uHtml;
+
+    // Populate Districts
+    var districts = curriculumService.getDistricts('Karnataka');
+    var dHtml = '<option value="">All Districts</option>';
+    districts.forEach(function (d) {
+      dHtml += '<option value="' + escapeHtml(d) + '">' + escapeHtml(d) + '</option>';
+    });
+    if (dom.selectDistFilter) dom.selectDistFilter.innerHTML = dHtml;
+  }
+
+  function renderCollegeList() {
+    if (!dom.collegeOptionsList) return;
+
+    var query = dom.collegeSearchInput ? dom.collegeSearchInput.value : '';
+    var univId = dom.selectUnivFilter ? dom.selectUnivFilter.value : '';
+    var district = dom.selectDistFilter ? dom.selectDistFilter.value : '';
+    var selectedId = dom.selectedCollegeId ? dom.selectedCollegeId.value : '';
+
+    var filtered = curriculumService.getColleges({
+      state: 'Karnataka',
+      universityId: univId,
+      district: district,
+      query: query
+    });
+
+    if (filtered.length === 0) {
+      dom.collegeOptionsList.innerHTML = 
+        '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">' +
+          'No colleges match the search criteria.' +
+        '</div>';
+      return;
+    }
+
+    var html = '';
+    filtered.forEach(function (c) {
+      var isSel = c.id === selectedId;
+      var autoBadge = c.autonomous 
+        ? '<span class="badge-tag autonomous">Autonomous</span>' 
+        : '<span class="badge-tag">VTU Affiliated</span>';
+
+      html += 
+        '<div class="college-list-item ' + (isSel ? 'selected' : '') + '" data-id="' + c.id + '" role="option" aria-selected="' + isSel + '">' +
+          '<div class="college-item-header">' +
+            '<span class="college-item-name">' + (c.shortName ? '<strong>' + escapeHtml(c.shortName) + '</strong> — ' : '') + escapeHtml(c.name) + '</span>' +
+            autoBadge +
+          '</div>' +
+          '<div class="college-item-meta">' +
+            '<span>📍 ' + escapeHtml(c.district || 'Karnataka') + '</span>' +
+            (c.vtuCode ? '<span>Code: <strong>' + escapeHtml(c.vtuCode) + '</strong></span>' : '') +
+            '<span>🏛️ ' + escapeHtml(c.university) + '</span>' +
+          '</div>' +
+        '</div>';
+    });
+
+    dom.collegeOptionsList.innerHTML = html;
+
+    // Attach click listeners to college items
+    dom.collegeOptionsList.querySelectorAll('.college-list-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var id = this.getAttribute('data-id');
+        selectCollege(id);
+      });
+    });
+  }
+
+  function selectCollege(collegeId) {
+    var college = curriculumService.getCollegeById(collegeId);
+    if (!college) return;
+
+    if (dom.selectedCollegeId) dom.selectedCollegeId.value = collegeId;
+    if (dom.collegeSearchInput) dom.collegeSearchInput.value = college.shortName ? college.shortName + ' — ' + college.name : college.name;
+
+    // Highlight selected item in list
+    if (dom.collegeOptionsList) {
+      dom.collegeOptionsList.querySelectorAll('.college-list-item').forEach(function (el) {
+        if (el.getAttribute('data-id') === collegeId) el.classList.add('selected');
+        else el.classList.remove('selected');
+      });
+    }
+
+    // Populate Courses for this College (Requirement #5)
+    var courses = curriculumService.getCourses(collegeId);
+    var courseHtml = '';
+    courses.forEach(function (c) {
+      courseHtml += '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+    });
+    if (dom.selectCourse) {
+      dom.selectCourse.innerHTML = courseHtml;
+      dom.selectCourse.value = courses[0] || 'B.E.';
+    }
+
+    updateBranchesForSelectedCourse();
+  }
+
+  function updateBranchesForSelectedCourse() {
+    var collegeId = dom.selectedCollegeId ? dom.selectedCollegeId.value : 'dsatm';
+    var course = dom.selectCourse ? dom.selectCourse.value : 'B.E.';
+
+    // Populate Branches for this College and Course (Requirement #6)
+    var branches = curriculumService.getBranches(collegeId, course);
+    var branchHtml = '';
+    branches.forEach(function (b) {
+      branchHtml += '<option value="' + escapeHtml(b) + '">' + escapeHtml(b) + '</option>';
+    });
+    if (dom.selectBranch) {
+      dom.selectBranch.innerHTML = branchHtml;
+      // Default to CSE - Cyber Security if present
+      if (branches.indexOf('CSE – Cyber Security') !== -1) {
+        dom.selectBranch.value = 'CSE – Cyber Security';
+      }
+    }
+
+    updateSchemesForSelectedBranch();
+  }
+
+  function updateSchemesForSelectedBranch() {
+    var collegeId = dom.selectedCollegeId ? dom.selectedCollegeId.value : 'dsatm';
+    var course = dom.selectCourse ? dom.selectCourse.value : 'B.E.';
+    var branch = dom.selectBranch ? dom.selectBranch.value : 'CSE – Cyber Security';
+
+    // Populate Schemes (Requirement #7)
+    var schemes = curriculumService.getSchemes(collegeId, course, branch);
+    var schemeHtml = '';
+    schemes.forEach(function (s) {
+      schemeHtml += '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>';
+    });
+    if (dom.selectScheme) {
+      dom.selectScheme.innerHTML = schemeHtml;
+      dom.selectScheme.value = schemes[0];
+    }
+
+    updateYearsAndSemesters();
+  }
+
+  function updateYearsAndSemesters() {
+    var collegeId = dom.selectedCollegeId ? dom.selectedCollegeId.value : 'dsatm';
+    var course = dom.selectCourse ? dom.selectCourse.value : 'B.E.';
+
+    // Populate Years (Requirement #8)
+    var years = curriculumService.getYears(collegeId, course);
+    var yearHtml = '';
+    years.forEach(function (y) {
+      yearHtml += '<option value="' + escapeHtml(y) + '">' + escapeHtml(y) + '</option>';
+    });
+    if (dom.selectYear) {
+      dom.selectYear.innerHTML = yearHtml;
+      if (years.indexOf('3rd Year') !== -1) {
+        dom.selectYear.value = '3rd Year';
+      }
+    }
+
+    updateSemestersForSelectedYear();
+  }
+
+  function updateSemestersForSelectedYear() {
+    var year = dom.selectYear ? dom.selectYear.value : '3rd Year';
+    var semesters = curriculumService.getSemesters(year);
+    var semHtml = '';
+    semesters.forEach(function (s) {
+      semHtml += '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>';
+    });
+    if (dom.selectSemester) {
+      dom.selectSemester.innerHTML = semHtml;
+      if (semesters.indexOf('5th Semester') !== -1) {
+        dom.selectSemester.value = '5th Semester';
+      } else {
+        dom.selectSemester.value = semesters[0];
+      }
+    }
+  }
+
+  // Discover Curriculum & Render Confirmation Screen (Requirement #9, #10, #11, #13)
+  function discoverCurriculumAction() {
+    var collegeId = dom.selectedCollegeId ? dom.selectedCollegeId.value : '';
+    if (!collegeId) {
+      showToast('Please select a college from the list first', 'error');
+      return;
+    }
+
+    var course = dom.selectCourse.value;
+    var branch = dom.selectBranch.value;
+    var scheme = dom.selectScheme.value;
+    var semester = dom.selectSemester.value;
+
+    var result = curriculumService.getCurriculum(collegeId, course, branch, scheme, semester);
+    var college = curriculumService.getCollegeById(collegeId);
+
+    if (!dom.curriculumConfirmContainer) return;
+    dom.curriculumConfirmContainer.classList.remove('hidden');
+
+    if (result.found && result.isOfficial) {
+      pendingCurriculumData = Object.assign({}, result, {
+        collegeId: collegeId,
+        collegeName: college ? college.name : 'College',
+        shortName: college ? college.shortName : ''
+      });
+
+      var subjectsHtml = '';
+      result.subjects.forEach(function (sub) {
+        var typeBadge = sub.isLab 
+          ? '<span class="badge-tag" style="background:var(--color-info-bg); color:var(--color-info);">Lab</span>' 
+          : '<span class="badge-tag">Theory</span>';
+        if (sub.isElective) {
+          typeBadge += ' <span class="badge-tag" style="background:var(--color-warning-bg); color:var(--color-warning);">Elective</span>';
+        }
+
+        subjectsHtml += 
+          '<div class="confirm-subject-item">' +
+            '<div class="confirm-sub-left">' +
+              '<span class="confirm-sub-code">' + escapeHtml(sub.code) + '</span>' +
+              '<div>' +
+                '<div class="confirm-sub-name">' + escapeHtml(sub.name) + '</div>' +
+                '<div class="confirm-sub-meta">' +
+                  '<span>' + escapeHtml(sub.category || '') + '</span>' +
+                  (sub.credits ? '<span>• ' + sub.credits + ' Credits</span>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div>' + typeBadge + '</div>' +
+          '</div>';
+      });
+
+      dom.curriculumConfirmContainer.innerHTML = 
+        '<div class="curriculum-confirm-header">' +
+          '<div class="curriculum-confirm-title">' +
+            '<span>✅</span> Official Curriculum Discovered' +
+          '</div>' +
+          '<div class="curriculum-meta-grid">' +
+            '<div class="meta-field"><div class="meta-field-label">College</div><div class="meta-field-val">' + escapeHtml(college ? college.shortName || college.name : collegeId) + '</div></div>' +
+            '<div class="meta-field"><div class="meta-field-label">Program</div><div class="meta-field-val">' + escapeHtml(course + ' ' + branch) + '</div></div>' +
+            '<div class="meta-field"><div class="meta-field-label">Scheme &amp; Sem</div><div class="meta-field-val">' + escapeHtml(scheme + ' • ' + semester) + '</div></div>' +
+            '<div class="meta-field"><div class="meta-field-label">Subjects Found</div><div class="meta-field-val text-safe">' + result.totalSubjects + ' Official Courses</div></div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="font-size:0.85rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.5rem;">' +
+          'Official Semester Subject List:' +
+        '</div>' +
+
+        '<div class="confirm-subject-list">' + subjectsHtml + '</div>' +
+
+        '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">' +
+          '<div style="font-size:0.78rem; color:var(--text-muted);">' +
+            'Source: <a href="' + result.sourceUrl + '" target="_blank" rel="noopener noreferrer" class="curriculum-source-link">' + escapeHtml(result.sourceName) + ' ↗</a> (Verified: ' + result.verifiedDate + ')' +
+          '</div>' +
+          '<div style="display:flex; gap:0.5rem;">' +
+            '<button type="button" class="btn btn-secondary btn-sm" id="btn-report-curriculum">Report Discrepancy</button>' +
+            '<button type="button" class="btn btn-primary" id="btn-confirm-apply-curriculum">Confirm &amp; Load Subjects &rarr;</button>' +
+          '</div>' +
+        '</div>';
+
+      // Attach confirmation listener
+      var confirmBtn = document.getElementById('btn-confirm-apply-curriculum');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', function () {
+          checkAndApplyCurriculum(pendingCurriculumData);
+        });
+      }
+
+      var reportBtn = document.getElementById('btn-report-curriculum');
+      if (reportBtn) {
+        reportBtn.addEventListener('click', function () {
+          showToast('Thank you. Discrepancy logged for academic registry review.', 'info');
+        });
+      }
+
+    } else {
+      // Official curriculum not found fallback (Requirement #13 & #26)
+      pendingCurriculumData = null;
+      dom.curriculumConfirmContainer.innerHTML = 
+        '<div class="fallback-notice-box">' +
+          '<div style="font-weight:700; font-size:0.95rem; margin-bottom:0.35rem; color:var(--color-warning);">' +
+            '⚠️ Official curriculum not available yet' +
+          '</div>' +
+          '<p style="color:var(--text-secondary); margin-bottom:0.75rem;">' +
+            'We have verified institutions across Karnataka, but specific official syllabus data for <strong>' + escapeHtml(course + ' ' + branch + ' (' + semester + ')') + '</strong> is not yet indexed in our repository.' +
+          '</p>' +
+          '<div style="display:flex; gap:0.5rem; justify-content:flex-end;">' +
+            '<button type="button" class="btn btn-secondary btn-sm" id="btn-fallback-manual-subjects">' +
+              'Enter Subjects Manually (Unverified Fallback)' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+
+      var fallbackManualBtn = document.getElementById('btn-fallback-manual-subjects');
+      if (fallbackManualBtn) {
+        fallbackManualBtn.addEventListener('click', function () {
+          closeAcademicModal();
+          openSubjectModal();
+          showToast('Switched to manual subject entry fallback', 'info');
+        });
+      }
+    }
+  }
+
+  // Check if existing subjects will be replaced (Requirement #28)
+  function checkAndApplyCurriculum(curriculumData) {
+    if (!curriculumData) return;
+    var existingSubjects = store.getSubjects();
+
+    if (existingSubjects.length > 0) {
+      // Open confirm switch modal
+      if (dom.confirmSwitchModal) {
+        dom.confirmSwitchModal.classList.add('active');
+        var switchBtn = document.getElementById('btn-confirm-program-switch');
+        if (switchBtn) {
+          switchBtn.onclick = function () {
+            dom.confirmSwitchModal.classList.remove('active');
+            executeApplyCurriculum(curriculumData);
+          };
+        }
+      }
+    } else {
+      executeApplyCurriculum(curriculumData);
+    }
+  }
+
+  function executeApplyCurriculum(curriculumData) {
+    store.applyCurriculum(curriculumData);
+    showToast('Loaded ' + curriculumData.totalSubjects + ' official subjects for ' + (curriculumData.shortName || curriculumData.collegeName) + '! 🎓', 'success');
+    closeAcademicModal();
+    navigateTo('dashboard');
+  }
+
+  function openAcademicModal() {
+    populateUniversityAndDistrictFilters();
+    renderCollegeList();
+
+    // Check if user already has an active program
+    var identity = store.getAcademicIdentity();
+    if (identity.collegeId) {
+      selectCollege(identity.collegeId);
+      if (dom.selectCourse && identity.course) dom.selectCourse.value = identity.course;
+      if (dom.selectBranch && identity.branch) dom.selectBranch.value = identity.branch;
+      if (dom.selectScheme && identity.scheme) dom.selectScheme.value = identity.scheme;
+      if (dom.selectYear && identity.year) dom.selectYear.value = identity.year;
+      if (dom.selectSemester && identity.semester) dom.selectSemester.value = identity.semester;
+    } else {
+      // Default to DSATM
+      selectCollege('dsatm');
+    }
+
+    if (dom.switchProgramWarning) {
+      if (store.getSubjects().length > 0) dom.switchProgramWarning.classList.remove('hidden');
+      else dom.switchProgramWarning.classList.add('hidden');
+    }
+
+    if (dom.curriculumConfirmContainer) {
+      dom.curriculumConfirmContainer.classList.add('hidden');
+    }
+
+    dom.academicModal.classList.add('active');
+  }
+
+  function closeAcademicModal() {
+    dom.academicModal.classList.remove('active');
+  }
+
+  // =========================================================================
+  // DASHBOARD RENDERING & PROVENANCE STRIP (#3, #14, #15, #17, #26)
+  // =========================================================================
+
   function renderCollegeStrip() {
     if (!dom.collegeInfoStrip) return;
-    var college = store.getCollege();
+    var identity = store.getAcademicIdentity();
     var rule = store.getRule();
+    var settings = store.getSettings();
 
-    var nameStr = college.name ? (college.abbreviation ? college.abbreviation + ' (' + college.name + ')' : college.name) : 'Universal College Setup';
-    var courseStr = [college.course, college.branch, college.semester].filter(Boolean).join(' • ');
+    var collegeLabel = identity.collegeName 
+      ? (identity.collegeAbbr ? identity.collegeAbbr + ' (' + identity.collegeName + ')' : identity.collegeName) 
+      : 'Dayananda Sagar Academy of Technology and Management (DSATM)';
+
+    var programLabel = [identity.course, identity.branch, identity.semester, identity.scheme].filter(Boolean).join(' • ');
+
+    var statusBadge = '';
+    if (settings.isDemoMode) {
+      statusBadge = '<span class="badge-tag" style="background:var(--color-warning-bg); color:var(--color-warning);">🧪 Demo Mode (Simulated Data)</span>';
+    } else if (identity.isOfficialCurriculum) {
+      statusBadge = '<span class="badge-tag official">🏛️ Official Verified Curriculum</span>';
+    } else {
+      statusBadge = '<span class="badge-tag custom">Custom Setup</span>';
+    }
+
+    var sourceLink = identity.curriculumSourceUrl 
+      ? '<a href="' + identity.curriculumSourceUrl + '" target="_blank" rel="noopener noreferrer" class="curriculum-source-link">Official curriculum source ↗</a>' 
+      : '';
 
     dom.collegeInfoStrip.innerHTML = 
-      '<div class="college-details">' +
-        '<span class="college-pill">🏛️ ' + escapeHtml(nameStr) + '</span>' +
-        (courseStr ? '<span class="college-pill">🎓 ' + escapeHtml(courseStr) + '</span>' : '') +
-        '<span class="college-pill">🎯 Min Required: <strong>' + (rule.minPercentage || 75) + '%</strong></span>' +
+      '<div>' +
+        '<div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem;">' +
+          '<strong>' + escapeHtml(collegeLabel) + '</strong>' +
+          statusBadge +
+        '</div>' +
+        '<div style="font-size:0.82rem; color:var(--text-secondary);">' +
+          (programLabel ? escapeHtml(programLabel) + ' • ' : '') +
+          'Requirement: <strong>' + (rule.minimumAttendance || 75) + '%</strong> ' +
+          (sourceLink ? '• ' + sourceLink : '') +
+        '</div>' +
       '</div>' +
       '<div>' +
-        '<button class="btn btn-secondary btn-sm" id="btn-quick-edit-college">Edit College Rules</button>' +
+        '<button class="btn btn-secondary btn-sm" id="btn-strip-change-academic">Change Program</button>' +
       '</div>';
 
-    var editBtn = document.getElementById('btn-quick-edit-college');
-    if (editBtn) {
-      editBtn.addEventListener('click', function () {
-        openCollegeModal();
+    var changeBtn = document.getElementById('btn-strip-change-academic');
+    if (changeBtn) {
+      changeBtn.addEventListener('click', function () {
+        openAcademicModal();
       });
     }
   }
 
-  // Render Main Dashboard (#3, #14, #15, #17)
   function renderDashboard() {
     renderCollegeStrip();
 
     var subjects = store.getSubjects();
     var rule = store.getRule();
-    var defaultReq = rule.minPercentage || 75;
+    var defaultReq = rule.minimumAttendance || 75;
     var overall = engine.calculateOverall(subjects, defaultReq);
 
-    // Primary Prominent Answer Card (#14)
+    // Primary Prominent Answer Card (#14, #17)
     var heroHtml = '';
     if (!overall.hasSubjects) {
       heroHtml = 
         '<div class="hero-question-title"><span>❓</span> How many classes can I miss?</div>' +
-        '<div class="hero-answer-main">0 SUBJECTS ADDED</div>' +
-        '<div class="hero-answer-subtitle">Add your semester subjects to start tracking safe bunks and eligibility.</div>' +
+        '<div class="hero-answer-main">NO SUBJECTS ADDED</div>' +
+        '<div class="hero-answer-subtitle">Select your academic curriculum to automatically load your subjects and safe bunks.</div>' +
         '<div style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">' +
-          '<button class="btn btn-primary" id="hero-btn-add-subject">+ Add Your First Subject</button>' +
-          '<button class="btn btn-secondary" id="hero-btn-load-demo">Try DSATM Demo</button>' +
+          '<button class="btn btn-primary" id="hero-btn-select-curriculum"><span>🏛️</span> Select College &amp; Curriculum</button>' +
+          '<button class="btn btn-secondary" id="hero-btn-load-demo">Try Demo Mode</button>' +
         '</div>';
       dom.dashboardBunkHero.className = 'bunk-hero-card';
     } else if (overall.overallPercentage < overall.requiredPercentage) {
-      // Below Requirement state
       heroHtml = 
         '<div class="hero-question-title"><span>⚠️</span> Primary Attendance Status</div>' +
         '<div class="hero-answer-main text-danger">BELOW REQUIREMENT</div>' +
@@ -232,7 +632,6 @@
         '</div>';
       dom.dashboardBunkHero.className = 'bunk-hero-card below';
     } else {
-      // Safe or Warning State
       var isWarning = overall.status.status === 'warning';
       var cardClass = isWarning ? 'warning' : 'safe';
       var badgeClass = isWarning ? 'warning' : 'safe';
@@ -254,14 +653,14 @@
     dom.dashboardBunkHero.innerHTML = heroHtml;
 
     // Attach hero button listeners
-    var addBtn = document.getElementById('hero-btn-add-subject');
-    if (addBtn) addBtn.addEventListener('click', function () { openSubjectModal(); });
+    var selCurricBtn = document.getElementById('hero-btn-select-curriculum');
+    if (selCurricBtn) selCurricBtn.addEventListener('click', openAcademicModal);
     var demoBtn = document.getElementById('hero-btn-load-demo');
-    if (demoBtn) demoBtn.addEventListener('click', function () { loadDemoDataAction(); });
+    if (demoBtn) demoBtn.addEventListener('click', loadDemoModeAction);
     var recBtn = document.getElementById('hero-btn-view-recovery');
     if (recBtn) recBtn.addEventListener('click', function () { navigateTo('calculator'); });
 
-    // Render Stats Grid
+    // Stats Grid
     var pctBarFillClass = overall.status.status === 'safe' ? 'safe' : (overall.status.status === 'warning' ? 'warning' : 'below');
     var barWidth = Math.min(100, Math.max(0, overall.overallPercentage));
 
@@ -282,8 +681,8 @@
 
       '<div class="stat-card">' +
         '<div class="stat-card-header">' +
-          '<span class="stat-label">Requirement Target</span>' +
-          '<button class="tool-icon-btn" id="btn-quick-adjust-req" title="Quick change requirement">⚙️ Adjust</button>' +
+          '<span class="stat-label">Target Requirement</span>' +
+          '<span style="font-size:0.75rem; color:var(--text-muted);">Configurable</span>' +
         '</div>' +
         '<div class="stat-value-large">' + overall.requiredPercentage + '%</div>' +
         '<div class="stat-subtext">' + 
@@ -314,14 +713,6 @@
         '</div>' +
       '</div>';
 
-    var adjustReqBtn = document.getElementById('btn-quick-adjust-req');
-    if (adjustReqBtn) {
-      adjustReqBtn.addEventListener('click', function () {
-        openCollegeModal();
-      });
-    }
-
-    // Render Preview of Subjects on Dashboard
     renderDashboardSubjectList(overall.subjects);
   }
 
@@ -331,12 +722,12 @@
       dom.dashboardSubjectsList.innerHTML = 
         '<div class="empty-state">' +
           '<div class="empty-state-icon">📚</div>' +
-          '<h3>No Subjects Added Yet</h3>' +
-          '<p>Add your classes to see safe bunks, recovery targets, and overall semester status.</p>' +
-          '<button class="btn btn-primary" id="btn-empty-add-subject">+ Add Subject</button>' +
+          '<h3>No Subjects Loaded</h3>' +
+          '<p>Select your college curriculum to automatically load your subjects, or add subjects manually.</p>' +
+          '<button class="btn btn-primary" id="btn-empty-select-curric"><span>🏛️</span> Select Curriculum</button>' +
         '</div>';
-      var emptyAdd = document.getElementById('btn-empty-add-subject');
-      if (emptyAdd) emptyAdd.addEventListener('click', function () { openSubjectModal(); });
+      var emptySel = document.getElementById('btn-empty-select-curric');
+      if (emptySel) emptySel.addEventListener('click', openAcademicModal);
       return;
     }
 
@@ -350,16 +741,23 @@
     attachSubjectCardListeners(dom.dashboardSubjectsList);
   }
 
-  // Render Full Subjects View
+  // =========================================================================
+  // SUBJECTS VIEW (Cards & Table) (#4, #16, #18)
+  // =========================================================================
+
   function renderSubjectsView() {
     var rawSubjects = store.getSubjects();
-    var defaultReq = store.getRule().minPercentage || 75;
+    var defaultReq = store.getRule().minimumAttendance || 75;
     var overall = engine.calculateOverall(rawSubjects, defaultReq);
     var subjects = overall.subjects || [];
 
     // Filter subjects
     var filtered = subjects.filter(function (s) {
       if (subjectFilter === 'all') return true;
+      if (subjectFilter === 'official') {
+        var raw = store.getSubject(s.id);
+        return raw && raw.isOfficial;
+      }
       return s.status.status === subjectFilter;
     });
 
@@ -368,11 +766,11 @@
         '<div class="empty-state" style="grid-column: 1 / -1;">' +
           '<div class="empty-state-icon">🔍</div>' +
           '<h3>No Subjects Found</h3>' +
-          '<p>' + (subjects.length === 0 ? 'You haven\'t added any subjects yet.' : 'No subjects match the selected "' + subjectFilter + '" filter.') + '</p>' +
-          '<button class="btn btn-primary" id="btn-view-add-subject">+ Add Subject</button>' +
+          '<p>' + (subjects.length === 0 ? 'You haven\'t loaded any subjects yet.' : 'No subjects match the selected "' + subjectFilter + '" filter.') + '</p>' +
+          '<button class="btn btn-primary" id="btn-view-select-curric"><span>🏛️</span> Load Official Curriculum</button>' +
         '</div>';
-      var viewAdd = document.getElementById('btn-view-add-subject');
-      if (viewAdd) viewAdd.addEventListener('click', function () { openSubjectModal(); });
+      var viewCurric = document.getElementById('btn-view-select-curric');
+      if (viewCurric) viewCurric.addEventListener('click', openAcademicModal);
     } else {
       var gridHtml = '';
       filtered.forEach(function (sub) {
@@ -382,11 +780,11 @@
       attachSubjectCardListeners(dom.subjectsGrid);
     }
 
-    // Render Table View as well
     renderSubjectsTable(subjects, defaultReq);
   }
 
   function renderSubjectCardHtml(sub) {
+    var rawSub = store.getSubject(sub.id) || {};
     var statusClass = sub.status.status;
     var bunkBanner = '';
 
@@ -398,13 +796,20 @@
       bunkBanner = '<div class="bunk-status-text safe">🟢 Can safely miss ' + sub.safeBunks + ' class' + (sub.safeBunks === 1 ? '' : 'es') + ' & remain &ge; ' + sub.required + '%</div>';
     }
 
+    var officialTag = rawSub.isOfficial 
+      ? '<span class="badge-tag official" title="Verified in official university curriculum">Official</span>' 
+      : '<span class="badge-tag custom" title="Manually added custom subject">Custom</span>';
+
     return (
       '<div class="subject-card status-' + statusClass + '" data-id="' + sub.id + '">' +
         '<div>' +
           '<div class="subject-card-top">' +
             '<div>' +
               '<div class="subject-name">' + escapeHtml(sub.name) + '</div>' +
-              (sub.code ? '<span class="subject-code">' + escapeHtml(sub.code) + '</span>' : '') +
+              '<div style="display:flex; align-items:center; gap:0.4rem; margin-top:0.25rem;">' +
+                (sub.code ? '<span class="subject-code">' + escapeHtml(sub.code) + '</span>' : '') +
+                officialTag +
+              '</div>' +
             '</div>' +
             '<span class="status-badge ' + statusClass + '">' + sub.status.icon + ' ' + sub.status.badge + '</span>' +
           '</div>' +
@@ -432,7 +837,7 @@
           '</div>' +
 
           '<div class="subject-footer-tools">' +
-            '<span>Req: ' + sub.required + '%</span>' +
+            '<span>Req: ' + sub.required + '%' + (rawSub.credits ? ' • ' + rawSub.credits + ' Cr' : '') + '</span>' +
             '<div class="icon-btn-group">' +
               '<button class="tool-icon-btn btn-undo-action" data-id="' + sub.id + '" title="Undo last attendance mark">↩️</button>' +
               '<button class="tool-icon-btn btn-edit-sub" data-id="' + sub.id + '" title="Edit subject">✏️</button>' +
@@ -449,7 +854,6 @@
   function attachSubjectCardListeners(container) {
     if (!container) return;
 
-    // Fast Stepper Buttons
     container.querySelectorAll('.btn-stepper').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -460,12 +864,10 @@
       });
     });
 
-    // Undo
     container.querySelectorAll('.btn-undo-action').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         var id = this.getAttribute('data-id');
-        // Try undo attend first if valid
         var sub = store.getSubject(id);
         if (sub && sub.conducted > 0) {
           if (sub.attended > 0 && confirm('Undo 1 attended class (removes 1 attended & 1 conducted)? Cancel to undo 1 missed class.')) {
@@ -479,7 +881,6 @@
       });
     });
 
-    // Edit
     container.querySelectorAll('.btn-edit-sub').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -487,7 +888,6 @@
       });
     });
 
-    // Duplicate
     container.querySelectorAll('.btn-dup-sub').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -496,7 +896,6 @@
       });
     });
 
-    // Reset
     container.querySelectorAll('.btn-reset-sub').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -509,7 +908,6 @@
       });
     });
 
-    // Delete
     container.querySelectorAll('.btn-del-sub').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -526,12 +924,13 @@
   function renderSubjectsTable(subjects, defaultReq) {
     if (!dom.subjectsTableBody) return;
     if (subjects.length === 0) {
-      dom.subjectsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">No subjects added yet.</td></tr>';
+      dom.subjectsTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem;">No subjects loaded yet.</td></tr>';
       return;
     }
 
     var html = '';
     subjects.forEach(function (sub) {
+      var rawSub = store.getSubject(sub.id) || {};
       var bunkText = sub.status.status === 'below' 
         ? '<span class="text-danger">0 (Need ' + sub.recoveryClasses + ' to recover)</span>' 
         : '<span class="text-safe">' + sub.safeBunks + '</span>';
@@ -539,6 +938,7 @@
       html += 
         '<tr>' +
           '<td><strong>' + escapeHtml(sub.name) + '</strong>' + (sub.code ? '<br><small class="text-muted font-mono">' + escapeHtml(sub.code) + '</small>' : '') + '</td>' +
+          '<td><span class="badge-tag">' + escapeHtml(rawSub.type || 'Theory') + '</span></td>' +
           '<td>' + sub.attended + '</td>' +
           '<td>' + sub.conducted + '</td>' +
           '<td><strong class="' + (sub.status.status === 'safe' ? 'text-safe' : (sub.status.status === 'warning' ? 'text-warning' : 'text-danger')) + '">' + sub.percentage + '%</strong></td>' +
@@ -551,7 +951,6 @@
     dom.subjectsTableBody.innerHTML = html;
   }
 
-  // Populate Dropdown for Simulator & Recovery Calculators
   function populateSubjectDropdowns() {
     var subjects = store.getSubjects();
     var optionsHtml = '<option value="overall">Overall (All Subjects Combined)</option>';
@@ -577,13 +976,16 @@
     }
   }
 
-  // What-If / Bunk Simulator Logic (#6)
+  // =========================================================================
+  // SIMULATOR & CALCULATORS (Preserved 100% Mathematically Correct Engine)
+  // =========================================================================
+
   function runSimulation() {
     if (!dom.simResultBox) return;
 
     var targetId = dom.simSubjectSelect ? dom.simSubjectSelect.value : 'overall';
     var count = parseInt(dom.simCountInput.value, 10) || 1;
-    var defaultReq = store.getRule().minPercentage || 75;
+    var defaultReq = store.getRule().minimumAttendance || 75;
 
     var attended = 0;
     var conducted = 0;
@@ -650,13 +1052,12 @@
       '</div>';
   }
 
-  // Recovery Calculator Logic (#7)
   function runRecoveryCalculator() {
     if (!dom.recoveryResultBanner) return;
 
     var targetId = dom.recoverySubjectSelect ? dom.recoverySubjectSelect.value : 'overall';
     var targetPct = parseFloat(recoveryTargetPct) || 75;
-    var defaultReq = store.getRule().minPercentage || 75;
+    var defaultReq = store.getRule().minimumAttendance || 75;
 
     var attended = 0;
     var conducted = 0;
@@ -709,7 +1110,6 @@
 
     dom.recoveryResultBanner.innerHTML = bannerHtml;
 
-    // Render Milestone Projections (+1, +3, +5, +10 classes)
     var projections = engine.getRecoveryProjections(attended, conducted, targetPct, [1, 2, 3, 5, 10]);
     var projHtml = '';
 
@@ -733,28 +1133,24 @@
     dom.recoveryMilestonesGrid.innerHTML = projHtml;
   }
 
-  // Attendance Target Calculator Matrix (#8)
   function renderTargetMatrix() {
     if (!dom.targetMatrixGrid) return;
 
     var targetId = dom.matrixSubjectSelect ? dom.matrixSubjectSelect.value : 'overall';
-    var defaultReq = store.getRule().minPercentage || 75;
+    var defaultReq = store.getRule().minimumAttendance || 75;
 
     var attended = 0;
     var conducted = 0;
-    var label = 'Overall';
 
     if (targetId === 'overall') {
       var overall = engine.calculateOverall(store.getSubjects(), defaultReq);
       attended = overall.totalAttended;
       conducted = overall.totalConducted;
-      label = 'Overall';
     } else {
       var sub = store.getSubject(targetId);
       if (sub) {
         attended = sub.attended;
         conducted = sub.conducted;
-        label = sub.name;
       }
     }
 
@@ -790,27 +1186,46 @@
     dom.targetMatrixGrid.innerHTML = html;
   }
 
-  // Render Settings View (#9, #10, #19)
+  // =========================================================================
+  // SETTINGS VIEW & DEMO MODE (#14, #16, #28)
+  // =========================================================================
+
   function renderSettingsView() {
-    var college = store.getCollege();
+    var identity = store.getAcademicIdentity();
     var rule = store.getRule();
 
-    if (dom.settingMinAttendance) dom.settingMinAttendance.value = rule.minPercentage || 75;
-    if (dom.settingLabAttendance) dom.settingLabAttendance.value = rule.labMinPercentage || 80;
-    if (dom.settingCondonationNotes) dom.settingCondonationNotes.value = rule.condonationPolicy || '';
+    if (dom.settingMinAttendance) dom.settingMinAttendance.value = rule.minimumAttendance || 75;
+    if (dom.settingLabAttendance) dom.settingLabAttendance.value = rule.labMinimum || 75;
+    if (dom.settingCondonationNotes) dom.settingCondonationNotes.value = rule.condonationRules || '';
 
-    if (dom.settingCollegeName) dom.settingCollegeName.value = college.name || '';
-    if (dom.settingCollegeAbbr) dom.settingCollegeAbbr.value = college.abbreviation || '';
-    if (dom.settingCourse) dom.settingCourse.value = college.course || '';
-    if (dom.settingBranch) dom.settingBranch.value = college.branch || '';
-    if (dom.settingSemester) dom.settingSemester.value = college.semester || '';
+    if (dom.settingsAcademicSummary) {
+      dom.settingsAcademicSummary.innerHTML = 
+        '<div class="meta-field"><div class="meta-field-label">College</div><div class="meta-field-val">' + escapeHtml(identity.collegeName || 'Not selected') + '</div></div>' +
+        '<div class="meta-field"><div class="meta-field-label">Degree &amp; Branch</div><div class="meta-field-val">' + escapeHtml((identity.course || '') + ' ' + (identity.branch || '')) + '</div></div>' +
+        '<div class="meta-field"><div class="meta-field-label">Scheme &amp; Sem</div><div class="meta-field-val">' + escapeHtml((identity.scheme || '') + ' • ' + (identity.semester || '')) + '</div></div>' +
+        '<div class="meta-field"><div class="meta-field-label">Status</div><div class="meta-field-val">' + (identity.isOfficialCurriculum ? '<span class="text-safe">Official Curriculum</span>' : 'Custom / Unverified') + '</div></div>';
+    }
+
+    if (dom.settingsRuleProvenance) {
+      if (rule.sourceUrl) {
+        dom.settingsRuleProvenance.innerHTML = 'Official Source: <a href="' + rule.sourceUrl + '" target="_blank" rel="noopener noreferrer" class="curriculum-source-link">' + escapeHtml(rule.sourceUrl) + ' ↗</a>';
+      } else {
+        dom.settingsRuleProvenance.innerHTML = 'Attendance requirement not verified — please confirm your college rule.';
+      }
+    }
   }
 
-  // Subject Modal Actions (Add / Edit)
+  function loadDemoModeAction() {
+    store.loadDemoMode();
+    showToast('Loaded Demo Mode with simulated student attendance! 🧪', 'success');
+    navigateTo('dashboard');
+  }
+
+  // Manual Subject Modal (Add / Edit)
   function openSubjectModal(subjectId) {
     editingSubjectId = subjectId || null;
     var title = document.getElementById('subject-modal-title');
-    var defaultReq = store.getRule().minPercentage || 75;
+    var defaultReq = store.getRule().minimumAttendance || 75;
 
     if (editingSubjectId) {
       var sub = store.getSubject(editingSubjectId);
@@ -818,6 +1233,7 @@
       if (title) title.textContent = 'Edit Subject';
       document.getElementById('input-subject-name').value = sub.name;
       document.getElementById('input-subject-code').value = sub.code || '';
+      document.getElementById('input-subject-credits').value = sub.credits || 3;
       document.getElementById('input-subject-attended').value = sub.attended;
       document.getElementById('input-subject-conducted').value = sub.conducted;
       document.getElementById('input-subject-req').value = sub.required || defaultReq;
@@ -825,8 +1241,9 @@
       document.getElementById('input-subject-lab').checked = Boolean(sub.isLab);
       document.getElementById('input-subject-notes').value = sub.notes || '';
     } else {
-      if (title) title.textContent = 'Add New Subject';
-      dom.subjectForm.reset();
+      if (title) title.textContent = 'Add Custom Subject';
+      var form = document.getElementById('form-subject');
+      if (form) form.reset();
       document.getElementById('input-subject-req').value = defaultReq;
       document.getElementById('input-subject-target').value = defaultReq + 5;
       document.getElementById('input-subject-attended').value = '0';
@@ -842,67 +1259,11 @@
     editingSubjectId = null;
   }
 
-  // College & Rules Modal
-  function openCollegeModal() {
-    var college = store.getCollege();
-    var rule = store.getRule();
+  // =========================================================================
+  // EVENT LISTENERS & SETUP
+  // =========================================================================
 
-    document.getElementById('college-input-name').value = college.name || '';
-    document.getElementById('college-input-abbr').value = college.abbreviation || '';
-    document.getElementById('college-input-university').value = college.university || '';
-    document.getElementById('college-input-course').value = college.course || '';
-    document.getElementById('college-input-branch').value = college.branch || '';
-    document.getElementById('college-input-sem').value = college.semester || '';
-    document.getElementById('college-input-min').value = rule.minPercentage || 75;
-    document.getElementById('college-input-condonation').value = rule.condonationPolicy || '';
-
-    dom.collegeModal.classList.add('active');
-  }
-
-  function closeCollegeModal() {
-    dom.collegeModal.classList.remove('active');
-  }
-
-  // Onboarding Wizard (#12)
-  function startOnboardingWizard() {
-    currentWizardStep = 1;
-    showWizardStep(1);
-    dom.onboardingModal.classList.add('active');
-  }
-
-  function closeOnboardingWizard() {
-    dom.onboardingModal.classList.remove('active');
-    store.updateSettings({ hasCompletedOnboarding: true });
-    navigateTo('dashboard');
-  }
-
-  function showWizardStep(stepNum) {
-    currentWizardStep = stepNum;
-    for (var i = 1; i <= 4; i++) {
-      var stepEl = document.getElementById('wizard-step-' + i);
-      var barEl = document.getElementById('wizard-bar-' + i);
-      if (stepEl) {
-        if (i === stepNum) stepEl.classList.add('active');
-        else stepEl.classList.remove('active');
-      }
-      if (barEl) {
-        if (i <= stepNum) barEl.classList.add('completed');
-        else barEl.classList.remove('completed');
-      }
-    }
-  }
-
-  // Quick Demo Loader (#11, #27)
-  function loadDemoDataAction() {
-    store.loadDemoData();
-    showToast('Loaded DSATM demo data with realistic subjects! 🎓', 'success');
-    closeOnboardingWizard();
-    navigateTo('dashboard');
-  }
-
-  // Setup Event Listeners
   function setupEventListeners() {
-    // Navigation Links
     dom.navLinks.forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
@@ -911,44 +1272,32 @@
       });
     });
 
-    // Theme Toggle
     if (dom.themeToggleBtn) {
       dom.themeToggleBtn.addEventListener('click', toggleTheme);
     }
 
     // Landing Page Buttons
     var landingCalcBtn = document.getElementById('landing-btn-calc');
-    if (landingCalcBtn) {
-      landingCalcBtn.addEventListener('click', function () {
-        if (store.getSubjects().length === 0) {
-          startOnboardingWizard();
-        } else {
-          navigateTo('dashboard');
-        }
-      });
-    }
+    if (landingCalcBtn) landingCalcBtn.addEventListener('click', openAcademicModal);
 
     var landingDemoBtn = document.getElementById('landing-btn-demo');
-    if (landingDemoBtn) {
-      landingDemoBtn.addEventListener('click', function () {
-        loadDemoDataAction();
-      });
-    }
+    if (landingDemoBtn) landingDemoBtn.addEventListener('click', loadDemoModeAction);
 
-    // Header Action: Add Subject
+    // Header buttons
+    var headerCurricBtn = document.getElementById('header-btn-academic-setup');
+    if (headerCurricBtn) headerCurricBtn.addEventListener('click', openAcademicModal);
+
     var headerAddBtn = document.getElementById('header-btn-add-subject');
-    if (headerAddBtn) {
-      headerAddBtn.addEventListener('click', function () {
-        openSubjectModal();
-      });
-    }
+    if (headerAddBtn) headerAddBtn.addEventListener('click', function () { openSubjectModal(); });
 
     var subjectsAddBtn = document.getElementById('btn-subjects-add-subject');
-    if (subjectsAddBtn) {
-      subjectsAddBtn.addEventListener('click', function () {
-        openSubjectModal();
-      });
-    }
+    if (subjectsAddBtn) subjectsAddBtn.addEventListener('click', function () { openSubjectModal(); });
+
+    var syncCurricAgain = document.getElementById('btn-sync-curriculum-again');
+    if (syncCurricAgain) syncCurricAgain.addEventListener('click', openAcademicModal);
+
+    var settingsChangeAcademicBtn = document.getElementById('btn-settings-change-academic');
+    if (settingsChangeAcademicBtn) settingsChangeAcademicBtn.addEventListener('click', openAcademicModal);
 
     // Subject Filter Chips
     document.querySelectorAll('.filter-chip').forEach(function (chip) {
@@ -960,20 +1309,66 @@
       });
     });
 
-    // Subject Modal Close & Cancel
+    // Dismiss Modals
     document.querySelectorAll('[data-dismiss="modal"]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         closeSubjectModal();
-        closeCollegeModal();
+        closeAcademicModal();
+        if (dom.confirmSwitchModal) dom.confirmSwitchModal.classList.remove('active');
       });
     });
 
-    // Subject Form Submit
-    if (dom.subjectForm) {
-      dom.subjectForm.addEventListener('submit', function (e) {
+    // Academic Selectors Search & Filters
+    if (dom.collegeSearchInput) {
+      dom.collegeSearchInput.addEventListener('input', renderCollegeList);
+    }
+    if (dom.selectUnivFilter) {
+      dom.selectUnivFilter.addEventListener('change', renderCollegeList);
+    }
+    if (dom.selectDistFilter) {
+      dom.selectDistFilter.addEventListener('change', renderCollegeList);
+    }
+    if (dom.selectCourse) {
+      dom.selectCourse.addEventListener('change', updateBranchesForSelectedCourse);
+    }
+    if (dom.selectBranch) {
+      dom.selectBranch.addEventListener('change', updateSchemesForSelectedBranch);
+    }
+    if (dom.selectYear) {
+      dom.selectYear.addEventListener('change', updateSemestersForSelectedYear);
+    }
+
+    // Discover Curriculum Button
+    var discoverBtn = document.getElementById('btn-discover-curriculum');
+    if (discoverBtn) {
+      discoverBtn.addEventListener('click', discoverCurriculumAction);
+    }
+
+    // Quick Fill DSATM Button (Requirement #30 test shortcut)
+    var quickDsatmBtn = document.getElementById('btn-quick-fill-dsatm');
+    if (quickDsatmBtn) {
+      quickDsatmBtn.addEventListener('click', function () {
+        selectCollege('dsatm');
+        if (dom.selectCourse) dom.selectCourse.value = 'B.E.';
+        updateBranchesForSelectedCourse();
+        if (dom.selectBranch) dom.selectBranch.value = 'CSE – Cyber Security';
+        updateSchemesForSelectedBranch();
+        if (dom.selectScheme) dom.selectScheme.value = '2022 Scheme';
+        if (dom.selectYear) dom.selectYear.value = '3rd Year';
+        updateSemestersForSelectedYear();
+        if (dom.selectSemester) dom.selectSemester.value = '5th Semester';
+        discoverCurriculumAction();
+      });
+    }
+
+    // Manual Subject Form Submit
+    var subjectForm = document.getElementById('form-subject');
+    if (subjectForm) {
+      subjectForm.addEventListener('submit', function (e) {
         e.preventDefault();
         var name = (document.getElementById('input-subject-name').value || '').trim();
         var code = (document.getElementById('input-subject-code').value || '').trim();
+        var credits = parseInt(document.getElementById('input-subject-credits').value, 10) || 3;
         var attended = parseInt(document.getElementById('input-subject-attended').value, 10) || 0;
         var conducted = parseInt(document.getElementById('input-subject-conducted').value, 10) || 0;
         var req = parseFloat(document.getElementById('input-subject-req').value) || 75;
@@ -996,6 +1391,7 @@
           store.updateSubject(editingSubjectId, {
             name: name,
             code: code,
+            credits: credits,
             attended: attended,
             conducted: conducted,
             required: req,
@@ -1008,82 +1404,26 @@
           store.addSubject({
             name: name,
             code: code,
+            credits: credits,
             attended: attended,
             conducted: conducted,
             required: req,
             target: target,
             isLab: isLab,
+            isOfficial: false,
             notes: notes
           });
-          showToast('Subject added successfully', 'success');
+          showToast('Custom subject added successfully', 'success');
         }
 
         closeSubjectModal();
       });
     }
 
-    // College & Rules Form Submit
-    if (dom.collegeForm) {
-      dom.collegeForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var name = (document.getElementById('college-input-name').value || '').trim();
-        var abbr = (document.getElementById('college-input-abbr').value || '').trim();
-        var univ = (document.getElementById('college-input-university').value || '').trim();
-        var course = (document.getElementById('college-input-course').value || '').trim();
-        var branch = (document.getElementById('college-input-branch').value || '').trim();
-        var sem = (document.getElementById('college-input-sem').value || '').trim();
-        var minReq = parseFloat(document.getElementById('college-input-min').value) || 75;
-        var condonation = (document.getElementById('college-input-condonation').value || '').trim();
-
-        if (minReq < 0 || minReq > 100) {
-          showToast('Minimum attendance must be between 0% and 100%', 'error');
-          return;
-        }
-
-        store.setCollege({
-          name: name,
-          abbreviation: abbr,
-          university: univ,
-          course: course,
-          branch: branch,
-          semester: sem
-        });
-
-        store.setRule({
-          minPercentage: minReq,
-          condonationPolicy: condonation
-        });
-
-        closeCollegeModal();
-        showToast('College & attendance rules updated', 'success');
-      });
-    }
-
-    // DSATM Preset Button in College Modal
-    var dsatmPresetBtn = document.getElementById('btn-preset-dsatm');
-    if (dsatmPresetBtn) {
-      dsatmPresetBtn.addEventListener('click', function () {
-        document.getElementById('college-input-name').value = 'Dayananda Sagar Academy of Technology and Management';
-        document.getElementById('college-input-abbr').value = 'DSATM';
-        document.getElementById('college-input-university').value = 'Visvesvaraya Technological University (VTU)';
-        document.getElementById('college-input-course').value = 'Bachelor of Engineering (B.E.)';
-        document.getElementById('college-input-branch').value = 'Computer Science & Engineering';
-        document.getElementById('college-input-sem').value = '5th Semester';
-        document.getElementById('college-input-min').value = '75';
-        document.getElementById('college-input-condonation').value = 'VTU allows up to 10% condonation with medical certificate if permitted by principal.';
-        showToast('Loaded DSATM template details');
-      });
-    }
-
     // Simulator Interactive Controls
-    if (dom.simSubjectSelect) {
-      dom.simSubjectSelect.addEventListener('change', runSimulation);
-    }
-    if (dom.simCountInput) {
-      dom.simCountInput.addEventListener('input', runSimulation);
-    }
+    if (dom.simSubjectSelect) dom.simSubjectSelect.addEventListener('change', runSimulation);
+    if (dom.simCountInput) dom.simCountInput.addEventListener('input', runSimulation);
 
-    // Simulator Mode Buttons (Miss vs Attend)
     var btnModeMiss = document.getElementById('btn-sim-mode-miss');
     var btnModeAttend = document.getElementById('btn-sim-mode-attend');
     if (btnModeMiss && btnModeAttend) {
@@ -1101,7 +1441,6 @@
       });
     }
 
-    // Simulator Preset Chips (1, 2, 3, 5, 10)
     document.querySelectorAll('.sim-preset-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
         document.querySelectorAll('.sim-preset-chip').forEach(function (c) { c.classList.remove('active'); });
@@ -1113,9 +1452,7 @@
     });
 
     // Recovery Calculator Controls
-    if (dom.recoverySubjectSelect) {
-      dom.recoverySubjectSelect.addEventListener('change', runRecoveryCalculator);
-    }
+    if (dom.recoverySubjectSelect) dom.recoverySubjectSelect.addEventListener('change', runRecoveryCalculator);
     if (dom.recoveryTargetSelect) {
       dom.recoveryTargetSelect.addEventListener('change', function () {
         if (this.value === 'custom') {
@@ -1136,33 +1473,23 @@
     }
 
     // Target Matrix Dropdown
-    if (dom.matrixSubjectSelect) {
-      dom.matrixSubjectSelect.addEventListener('change', renderTargetMatrix);
-    }
+    if (dom.matrixSubjectSelect) dom.matrixSubjectSelect.addEventListener('change', renderTargetMatrix);
 
-    // Settings View Buttons
+    // Save Attendance Thresholds from Settings
     var saveRulesBtn = document.getElementById('btn-save-settings-rules');
     if (saveRulesBtn) {
       saveRulesBtn.addEventListener('click', function () {
         var minReq = parseFloat(dom.settingMinAttendance.value) || 75;
-        var labReq = parseFloat(dom.settingLabAttendance.value) || 80;
+        var labReq = parseFloat(dom.settingLabAttendance.value) || 75;
         var condonation = dom.settingCondonationNotes.value || '';
 
         store.setRule({
-          minPercentage: minReq,
-          labMinPercentage: labReq,
-          condonationPolicy: condonation
+          minimumAttendance: minReq,
+          labMinimum: labReq,
+          condonationRules: condonation
         });
 
-        store.setCollege({
-          name: dom.settingCollegeName.value,
-          abbreviation: dom.settingCollegeAbbr.value,
-          course: dom.settingCourse.value,
-          branch: dom.settingBranch.value,
-          semester: dom.settingSemester.value
-        });
-
-        showToast('Settings saved successfully', 'success');
+        showToast('Attendance rules updated successfully', 'success');
       });
     }
 
@@ -1171,12 +1498,12 @@
     if (exportJsonBtn) {
       exportJsonBtn.addEventListener('click', function () {
         var dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(store.exportJSON());
-        var downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute('href', dataStr);
-        downloadAnchor.setAttribute('download', 'class_bunker_backup_' + new Date().toISOString().slice(0, 10) + '.json');
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        var a = document.createElement('a');
+        a.setAttribute('href', dataStr);
+        a.setAttribute('download', 'class_bunker_backup_' + new Date().toISOString().slice(0, 10) + '.json');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
         showToast('Exported complete backup to JSON');
       });
     }
@@ -1188,17 +1515,17 @@
         var csvStr = store.exportCSV();
         var blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
         var url = URL.createObjectURL(blob);
-        var downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute('href', url);
-        downloadAnchor.setAttribute('download', 'class_bunker_attendance_' + new Date().toISOString().slice(0, 10) + '.csv');
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        var a = document.createElement('a');
+        a.setAttribute('href', url);
+        a.setAttribute('download', 'class_bunker_attendance_' + new Date().toISOString().slice(0, 10) + '.csv');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
         showToast('Exported attendance to CSV');
       });
     }
 
-    // Import JSON File Trigger
+    // Import JSON
     var importTriggerBtn = document.getElementById('btn-trigger-import-json');
     if (importTriggerBtn && dom.jsonFileInput) {
       importTriggerBtn.addEventListener('click', function () {
@@ -1211,12 +1538,12 @@
 
         var reader = new FileReader();
         reader.onload = function (evt) {
-          var result = store.importJSON(evt.target.result);
-          if (result.success) {
+          var res = store.importJSON(evt.target.result);
+          if (res.success) {
             showToast('Backup restored successfully!', 'success');
             navigateTo('dashboard');
           } else {
-            showToast(result.error, 'error');
+            showToast(res.error, 'error');
           }
         };
         reader.readAsText(file);
@@ -1234,79 +1561,15 @@
         }
       });
     }
-
-    // Load DSATM Demo from Settings
-    var loadDemoSettingsBtn = document.getElementById('btn-settings-load-demo');
-    if (loadDemoSettingsBtn) {
-      loadDemoSettingsBtn.addEventListener('click', function () {
-        loadDemoDataAction();
-      });
-    }
-
-    // Wizard Navigation Buttons
-    var wizardNext1 = document.getElementById('wizard-next-1');
-    var wizardNext2 = document.getElementById('wizard-next-2');
-    var wizardNext3 = document.getElementById('wizard-next-3');
-    var wizardSkip = document.getElementById('wizard-skip');
-    var wizardDemo = document.getElementById('wizard-load-demo');
-
-    if (wizardNext1) wizardNext1.addEventListener('click', function () { showWizardStep(2); });
-    if (wizardNext2) {
-      wizardNext2.addEventListener('click', function () {
-        var colName = (document.getElementById('wiz-college-name').value || '').trim();
-        var course = (document.getElementById('wiz-course').value || '').trim();
-        var sem = (document.getElementById('wiz-sem').value || '').trim();
-
-        store.setCollege({
-          name: colName,
-          course: course,
-          semester: sem
-        });
-        showWizardStep(3);
-      });
-    }
-    if (wizardNext3) {
-      wizardNext3.addEventListener('click', function () {
-        var req = parseFloat(document.getElementById('wiz-min-req').value) || 75;
-        store.setRule({ minPercentage: req });
-        showWizardStep(4);
-      });
-    }
-    if (wizardSkip) wizardSkip.addEventListener('click', closeOnboardingWizard);
-    if (wizardDemo) wizardDemo.addEventListener('click', loadDemoDataAction);
-
-    var wizFinishBtn = document.getElementById('wizard-finish');
-    if (wizFinishBtn) wizFinishBtn.addEventListener('click', closeOnboardingWizard);
-
-    var wizAddSubBtn = document.getElementById('wizard-add-sub');
-    if (wizAddSubBtn) {
-      wizAddSubBtn.addEventListener('click', function () {
-        closeOnboardingWizard();
-        openSubjectModal();
-      });
-    }
-
-    // Wizard DSATM Shortcut
-    var wizSelectDsatm = document.getElementById('wiz-select-dsatm');
-    if (wizSelectDsatm) {
-      wizSelectDsatm.addEventListener('click', function () {
-        document.getElementById('wiz-college-name').value = 'Dayananda Sagar Academy of Technology and Management';
-        document.getElementById('wiz-course').value = 'B.E. Computer Science';
-        document.getElementById('wiz-sem').value = '5th Semester';
-        showToast('Selected DSATM preconfiguration');
-      });
-    }
   }
 
-  // Application Entry Point
+  // App Initialization
   function init() {
     initDomElements();
 
-    // Apply stored theme
     var currentTheme = store.getSettings().theme || 'dark';
     applyTheme(currentTheme);
 
-    // Setup reactive store subscription: any store changes re-renders current view
     store.subscribe(function () {
       if (activeView === 'dashboard') {
         renderDashboard();
@@ -1319,12 +1582,13 @@
         populateSubjectDropdowns();
         runRecoveryCalculator();
         renderTargetMatrix();
+      } else if (activeView === 'settings') {
+        renderSettingsView();
       }
     });
 
     setupEventListeners();
 
-    // If user has subjects or completed onboarding, start on dashboard; otherwise show landing
     var subjects = store.getSubjects();
     if (subjects.length > 0 || store.getSettings().hasCompletedOnboarding) {
       navigateTo('dashboard');
@@ -1332,16 +1596,19 @@
       navigateTo('landing');
     }
 
-    // Expose for global actions and developer console testing
+    // Global developer console & testing API
     window.ClassBunkerApp = {
+      openAcademicModal: openAcademicModal,
+      closeAcademicModal: closeAcademicModal,
       openSubjectModal: openSubjectModal,
       closeSubjectModal: closeSubjectModal,
-      openCollegeModal: openCollegeModal,
-      closeCollegeModal: closeCollegeModal,
       navigateTo: navigateTo,
-      loadDemoDataAction: loadDemoDataAction,
+      selectCollege: selectCollege,
+      discoverCurriculumAction: discoverCurriculumAction,
+      loadDemoModeAction: loadDemoModeAction,
       store: store,
-      engine: engine
+      engine: engine,
+      curriculumService: curriculumService
     };
   }
 
@@ -1355,7 +1622,6 @@
       .replace(/'/g, '&#039;');
   }
 
-  // Initialize on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

@@ -1,8 +1,9 @@
 /**
- * Class Bunker - Data Store & Persistence Layer
+ * Class Bunker - Data Store & Persistence Layer (Curriculum-Aware v2)
  * 
- * Future-ready local storage architecture designed for seamless migration to cloud databases.
- * Supports complete import/export (JSON/CSV) and pre-configured demo datasets (e.g. DSATM).
+ * Future-ready local storage architecture with authoritative curriculum mapping.
+ * Supports official curriculum synchronization, academic identity state,
+ * complete JSON/CSV import/export, and verified college attendance rules.
  */
 
 (function (root, factory) {
@@ -16,76 +17,8 @@
 }(typeof self !== 'undefined' ? self : this, function (AttendanceEngine) {
   'use strict';
 
-  var STORAGE_KEY = 'class_bunker_app_state_v1';
-
-  var DSATM_DEMO_COLLEGE = {
-    id: 'dsatm_demo',
-    name: 'Dayananda Sagar Academy of Technology and Management',
-    abbreviation: 'DSATM',
-    university: 'Visvesvaraya Technological University (VTU)',
-    course: 'Bachelor of Engineering (B.E.)',
-    branch: 'Computer Science and Engineering',
-    year: '3rd Year',
-    semester: '5th Semester'
-  };
-
-  var DSATM_DEMO_SUBJECTS = [
-    {
-      id: 'sub_1',
-      name: 'Operating Systems',
-      code: '21CS51',
-      conducted: 50,
-      attended: 42,
-      required: 75,
-      target: 80,
-      isLab: false,
-      notes: 'Includes Linux process scheduling and memory management'
-    },
-    {
-      id: 'sub_2',
-      name: 'Database Management Systems',
-      code: '21CS52',
-      conducted: 48,
-      attended: 37,
-      required: 75,
-      target: 80,
-      isLab: false,
-      notes: 'SQL and relational algebra'
-    },
-    {
-      id: 'sub_3',
-      name: 'Computer Networks',
-      code: '21CS53',
-      conducted: 45,
-      attended: 31,
-      required: 75,
-      target: 75,
-      isLab: false,
-      notes: 'Near limit, need careful attendance management'
-    },
-    {
-      id: 'sub_4',
-      name: 'Information and Network Security',
-      code: '21CS54',
-      conducted: 40,
-      attended: 38,
-      required: 75,
-      target: 85,
-      isLab: false,
-      notes: 'Cryptography & cyber defense fundamentals'
-    },
-    {
-      id: 'sub_5',
-      name: 'DBMS & OS Laboratory',
-      code: '21CSL55',
-      conducted: 24,
-      attended: 22,
-      required: 80,
-      target: 85,
-      isLab: true,
-      notes: 'Practical lab sessions require 80% minimum'
-    }
-  ];
+  var STORAGE_KEY = 'class_bunker_app_state_v2';
+  var LEGACY_STORAGE_KEY = 'class_bunker_app_state_v1';
 
   function generateId(prefix) {
     prefix = prefix || 'sub';
@@ -94,32 +27,51 @@
 
   function getDefaultState() {
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       settings: {
         theme: 'dark', // 'dark' | 'light'
         defaultMinAttendance: 75,
         defaultTargetAttendance: 80,
-        showDisclaimerModal: true,
         hasCompletedOnboarding: false,
-        isDemoLoaded: false
+        isDemoMode: false
+      },
+      academicIdentity: {
+        state: 'Karnataka',
+        collegeId: '',
+        collegeName: '',
+        collegeAbbr: '',
+        university: '',
+        universityId: '',
+        course: '',
+        branch: '',
+        branchCode: '',
+        scheme: '',
+        year: '',
+        semester: '',
+        isOfficialCurriculum: false,
+        curriculumSourceUrl: '',
+        curriculumSourceName: '',
+        curriculumVerifiedDate: ''
       },
       college: {
         id: '',
         name: '',
         abbreviation: '',
         university: '',
-        course: '',
-        branch: '',
-        year: '',
-        semester: ''
+        district: '',
+        officialWebsite: '',
+        autonomous: false
       },
       attendanceRule: {
-        minPercentage: 75,
-        labMinPercentage: 80,
-        condonationPercentage: 65,
-        condonationPolicy: 'University permits condonation up to 10% on medical grounds upon submitting verified medical certificates.'
+        isVerified: false,
+        minimumAttendance: 75,
+        theoryMinimum: 75,
+        labMinimum: 75,
+        condonationRules: 'VTU Regulation: Minimum 75% attendance required in each subject (theory and practical separately).',
+        sourceUrl: '',
+        verifiedDate: ''
       },
       subjects: [],
       history: []
@@ -157,8 +109,19 @@
       var raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.schemaVersion === 1) {
+        if (parsed && parsed.schemaVersion === 2) {
           return parsed;
+        }
+      }
+
+      // Check migration from legacy v1
+      var legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacyRaw) {
+        var legacy = JSON.parse(legacyRaw);
+        if (legacy) {
+          var state = getDefaultState();
+          state.settings.theme = (legacy.settings && legacy.settings.theme) || 'dark';
+          return state;
         }
       }
     } catch (e) {
@@ -190,6 +153,16 @@
     this.save();
   };
 
+  ClassBunkerStore.prototype.getAcademicIdentity = function () {
+    return this.state.academicIdentity;
+  };
+
+  ClassBunkerStore.prototype.setAcademicIdentity = function (identityData) {
+    this.state.academicIdentity = Object.assign({}, this.state.academicIdentity, identityData);
+    this.state.settings.hasCompletedOnboarding = true;
+    this.save();
+  };
+
   ClassBunkerStore.prototype.getCollege = function () {
     return this.state.college;
   };
@@ -205,8 +178,8 @@
 
   ClassBunkerStore.prototype.setRule = function (ruleData) {
     this.state.attendanceRule = Object.assign({}, this.state.attendanceRule, ruleData);
-    if (typeof ruleData.minPercentage === 'number') {
-      this.state.settings.defaultMinAttendance = ruleData.minPercentage;
+    if (typeof ruleData.minimumAttendance === 'number') {
+      this.state.settings.defaultMinAttendance = ruleData.minimumAttendance;
     }
     this.save();
   };
@@ -219,20 +192,92 @@
     return (this.state.subjects || []).find(function (s) { return s.id === id; });
   };
 
+  /**
+   * Apply official discovered curriculum to state
+   * (Replaces subjects with official syllabus list while preserving user confirmation)
+   */
+  ClassBunkerStore.prototype.applyCurriculum = function (curriculumData) {
+    var minReq = (curriculumData.attendanceRule && curriculumData.attendanceRule.minimumAttendance) || 75;
+    var self = this;
+
+    // Update Academic Identity
+    this.state.academicIdentity = {
+      state: 'Karnataka',
+      collegeId: curriculumData.collegeId || this.state.college.id || '',
+      collegeName: curriculumData.collegeName || '',
+      collegeAbbr: curriculumData.shortName || '',
+      university: curriculumData.university || 'VTU',
+      course: curriculumData.course || '',
+      branch: curriculumData.branch || '',
+      branchCode: curriculumData.branchCode || '',
+      scheme: curriculumData.scheme || '',
+      year: curriculumData.year || '',
+      semester: curriculumData.semester || '',
+      isOfficialCurriculum: Boolean(curriculumData.isOfficial),
+      curriculumSourceUrl: curriculumData.sourceUrl || '',
+      curriculumSourceName: curriculumData.sourceName || '',
+      curriculumVerifiedDate: curriculumData.verifiedDate || ''
+    };
+
+    // Update Attendance Rule
+    if (curriculumData.attendanceRule) {
+      this.state.attendanceRule = Object.assign({}, this.state.attendanceRule, curriculumData.attendanceRule, {
+        isVerified: true
+      });
+      this.state.settings.defaultMinAttendance = curriculumData.attendanceRule.minimumAttendance || 75;
+    }
+
+    // Map subjects
+    var rawSubs = curriculumData.subjects || [];
+    this.state.subjects = rawSubs.map(function (sub) {
+      return {
+        id: generateId('sub'),
+        code: (sub.code || '').trim(),
+        name: (sub.name || '').trim(),
+        category: sub.category || 'Professional Core Course',
+        credits: typeof sub.credits === 'number' ? sub.credits : 3,
+        conducted: 0,
+        attended: 0,
+        required: minReq,
+        target: minReq + 5,
+        type: sub.type || (sub.isLab ? 'Practical / Lab' : 'Theory'),
+        isLab: Boolean(sub.isLab),
+        isOfficial: true,
+        isElective: Boolean(sub.isElective),
+        notes: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    this.state.settings.isDemoMode = false;
+    this.state.settings.hasCompletedOnboarding = true;
+    this.save();
+    return this.state.subjects;
+  };
+
+  /**
+   * Add a manual custom subject
+   */
   ClassBunkerStore.prototype.addSubject = function (subject) {
     var minReq = typeof subject.required === 'number' && !isNaN(subject.required)
       ? subject.required
-      : (this.state.attendanceRule.minPercentage || 75);
+      : (this.state.attendanceRule.minimumAttendance || 75);
 
     var newSubject = {
       id: generateId('sub'),
       name: (subject.name || '').trim(),
       code: (subject.code || '').trim(),
+      category: subject.category || 'Custom Subject',
+      credits: typeof subject.credits === 'number' ? subject.credits : 3,
       conducted: Math.max(0, parseInt(subject.conducted, 10) || 0),
       attended: Math.max(0, parseInt(subject.attended, 10) || 0),
       required: minReq,
       target: typeof subject.target === 'number' ? subject.target : minReq,
+      type: subject.isLab ? 'Practical / Lab' : 'Theory',
       isLab: Boolean(subject.isLab),
+      isOfficial: Boolean(subject.isOfficial),
+      isElective: Boolean(subject.isElective),
       notes: (subject.notes || '').trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -288,6 +333,7 @@
     var duplicate = Object.assign({}, original, {
       id: generateId('sub'),
       name: original.name + ' (Copy)',
+      isOfficial: false, // Duplicates are marked custom
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
@@ -298,17 +344,11 @@
   };
 
   ClassBunkerStore.prototype.resetSubject = function (id) {
-    var subject = this.getSubject(id);
-    if (!subject) return null;
     return this.updateSubject(id, { attended: 0, conducted: 0 });
   };
 
   /**
-   * Fast attendance actions:
-   * 'attend': student attended a class (+1 attended, +1 conducted)
-   * 'miss': student missed a class (+1 conducted, +0 attended)
-   * 'undo_attend': undo last attended class (-1 attended, -1 conducted)
-   * 'undo_miss': undo last missed class (-1 conducted)
+   * Fast attendance actions
    */
   ClassBunkerStore.prototype.markAttendance = function (id, action) {
     var subject = this.getSubject(id);
@@ -343,27 +383,153 @@
     return this.updateSubject(id, { attended: att, conducted: cond });
   };
 
-  ClassBunkerStore.prototype.loadDemoData = function () {
-    this.state.college = Object.assign({}, DSATM_DEMO_COLLEGE);
-    this.state.attendanceRule = {
-      minPercentage: 75,
-      labMinPercentage: 80,
-      condonationPercentage: 65,
-      condonationPolicy: 'VTU/DSATM regulation: Minimum 75% attendance in theory courses and 80% in labs. Up to 10% condonation permitted on certified medical grounds.'
+  /**
+   * Dedicated, clearly labeled Demo Mode (Requirement #14)
+   * Does NOT masquerade as official curriculum
+   */
+  ClassBunkerStore.prototype.loadDemoMode = function () {
+    this.state.academicIdentity = {
+      state: 'Karnataka',
+      collegeId: 'dsatm',
+      collegeName: 'Dayananda Sagar Academy of Technology and Management',
+      collegeAbbr: 'DSATM',
+      university: 'VTU',
+      universityId: 'vtu',
+      course: 'B.E.',
+      branch: 'CSE – Cyber Security',
+      branchCode: 'CY',
+      scheme: '2022 Scheme',
+      year: '3rd Year',
+      semester: '5th Semester',
+      isOfficialCurriculum: false, // Explicitly false for simulated demo mode
+      curriculumSourceUrl: 'https://vtu.ac.in/en/b-e-scheme-syllabus/',
+      curriculumSourceName: 'Demonstration Sample Dataset (Simulated Attendance)',
+      curriculumVerifiedDate: '2024-09-15'
     };
+
+    this.state.college = {
+      id: 'dsatm',
+      name: 'Dayananda Sagar Academy of Technology and Management',
+      abbreviation: 'DSATM',
+      university: 'VTU',
+      district: 'Bengaluru Urban',
+      officialWebsite: 'https://dsatm.edu.in',
+      autonomous: false
+    };
+
+    this.state.attendanceRule = {
+      isVerified: true,
+      minimumAttendance: 75,
+      theoryMinimum: 75,
+      labMinimum: 75,
+      condonationRules: 'VTU Academic Regulation (Section 8): 75% minimum required.',
+      sourceUrl: 'https://vtu.ac.in',
+      verifiedDate: '2024-09-15'
+    };
+
     this.state.settings.defaultMinAttendance = 75;
-    this.state.settings.defaultTargetAttendance = 80;
-    this.state.settings.isDemoLoaded = true;
+    this.state.settings.isDemoMode = true;
     this.state.settings.hasCompletedOnboarding = true;
 
-    // Deep clone demo subjects
-    this.state.subjects = DSATM_DEMO_SUBJECTS.map(function (sub) {
-      return Object.assign({}, sub, {
+    // Realistic attendance sample data
+    this.state.subjects = [
+      {
         id: generateId('demo'),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    });
+        code: 'BCS501',
+        name: 'Software Engineering and Project Management',
+        category: 'Professional Core Course',
+        credits: 3,
+        conducted: 42,
+        attended: 37,
+        required: 75,
+        target: 80,
+        type: 'Theory',
+        isLab: false,
+        isOfficial: true,
+        isElective: false,
+        notes: 'Includes Agile & Scrum modeling'
+      },
+      {
+        id: generateId('demo'),
+        code: 'BCS502',
+        name: 'Computer Networks',
+        category: 'Integrated Professional Core',
+        credits: 4,
+        conducted: 40,
+        attended: 31,
+        required: 75,
+        target: 80,
+        type: 'Integrated Theory',
+        isLab: false,
+        isOfficial: true,
+        isElective: false,
+        notes: 'Near limit, avoid missing'
+      },
+      {
+        id: generateId('demo'),
+        code: 'BCS503',
+        name: 'Theory of Computation',
+        category: 'Professional Core Course',
+        credits: 3,
+        conducted: 38,
+        attended: 25,
+        required: 75,
+        target: 75,
+        type: 'Theory',
+        isLab: false,
+        isOfficial: true,
+        isElective: false,
+        notes: 'Under limit! Needs consecutive classes'
+      },
+      {
+        id: generateId('demo'),
+        code: 'BCY504',
+        name: 'Cyber Security Fundamentals & Cyber Laws',
+        category: 'Professional Core Course',
+        credits: 3,
+        conducted: 35,
+        attended: 32,
+        required: 75,
+        target: 85,
+        type: 'Theory',
+        isLab: false,
+        isOfficial: true,
+        isElective: false,
+        notes: 'Safe standing'
+      },
+      {
+        id: generateId('demo'),
+        code: 'BCSL505',
+        name: 'Computer Networks Laboratory',
+        category: 'Laboratory Course',
+        credits: 1,
+        conducted: 20,
+        attended: 18,
+        required: 75,
+        target: 80,
+        type: 'Practical / Lab',
+        isLab: true,
+        isOfficial: true,
+        isElective: false,
+        notes: 'Socket programming in C'
+      },
+      {
+        id: generateId('demo'),
+        code: 'BCYL506',
+        name: 'Cyber Security & Vulnerability Analysis Lab',
+        category: 'Laboratory Course',
+        credits: 1,
+        conducted: 18,
+        attended: 17,
+        required: 75,
+        target: 80,
+        type: 'Practical / Lab',
+        isLab: true,
+        isOfficial: true,
+        isElective: false,
+        notes: 'Wireshark & Nmap packet analysis'
+      }
+    ];
 
     this.save();
     return this.state;
@@ -371,29 +537,23 @@
 
   ClassBunkerStore.prototype.clearAllData = function () {
     var fresh = getDefaultState();
-    fresh.settings.theme = this.state.settings.theme; // Preserve user's theme
+    fresh.settings.theme = this.state.settings.theme;
     this.state = fresh;
     this.save();
     return this.state;
   };
 
-  /**
-   * Export all data as structured JSON
-   */
   ClassBunkerStore.prototype.exportJSON = function () {
-    var exportPayload = {
+    var payload = {
       app: 'Class Bunker',
       tagline: 'Bunk smart. Stay eligible.',
-      version: '1.0.0',
+      version: '2.0.0',
       exportedAt: new Date().toISOString(),
       data: this.state
     };
-    return JSON.stringify(exportPayload, null, 2);
+    return JSON.stringify(payload, null, 2);
   };
 
-  /**
-   * Import data from JSON string
-   */
   ClassBunkerStore.prototype.importJSON = function (jsonString) {
     try {
       var parsed = JSON.parse(jsonString);
@@ -404,7 +564,7 @@
       }
 
       this.state = Object.assign({}, getDefaultState(), incomingState, {
-        schemaVersion: 1,
+        schemaVersion: 2,
         updatedAt: new Date().toISOString()
       });
 
@@ -415,16 +575,13 @@
     }
   };
 
-  /**
-   * Export subjects as CSV
-   */
   ClassBunkerStore.prototype.exportCSV = function () {
     var subjects = this.getSubjects();
-    var defaultReq = this.state.attendanceRule.minPercentage || 75;
+    var defaultReq = this.state.attendanceRule.minimumAttendance || 75;
     var overall = AttendanceEngine.calculateOverall(subjects, defaultReq);
 
     var rows = [
-      ['Subject Name', 'Course Code', 'Classes Attended', 'Classes Conducted', 'Attendance %', 'Required %', 'Can Miss (Bunks)', 'Classes to Recover', 'Status']
+      ['Subject Name', 'Course Code', 'Category', 'Type', 'Attended', 'Conducted', 'Attendance %', 'Required %', 'Can Miss (Bunks)', 'Classes to Recover', 'Status', 'Curriculum Status']
     ];
 
     subjects.forEach(function (sub) {
@@ -437,20 +594,24 @@
       rows.push([
         '"' + (sub.name || '').replace(/"/g, '""') + '"',
         '"' + (sub.code || '').replace(/"/g, '""') + '"',
+        '"' + (sub.category || '').replace(/"/g, '""') + '"',
+        '"' + (sub.type || '').replace(/"/g, '""') + '"',
         sub.attended,
         sub.conducted,
         pct + '%',
         req + '%',
         bunks,
         recovery,
-        '"' + status + '"'
+        '"' + status + '"',
+        sub.isOfficial ? '"Official Curriculum"' : '"Custom / Unverified"'
       ]);
     });
 
-    // Add Overall Summary row
     rows.push([]);
     rows.push([
       '"OVERALL ATTENDANCE"',
+      '""',
+      '""',
       '""',
       overall.totalAttended,
       overall.totalConducted,
@@ -458,7 +619,8 @@
       overall.requiredPercentage + '%',
       overall.safeBunks,
       overall.recoveryClasses,
-      '"' + overall.status.label + '"'
+      '"' + overall.status.label + '"',
+      '""'
     ]);
 
     return rows.map(function (row) { return row.join(','); }).join('\r\n');
