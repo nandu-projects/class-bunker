@@ -50,21 +50,46 @@
     dom.academicModal = document.getElementById('modal-academic-setup');
     dom.subjectModal = document.getElementById('modal-subject');
     dom.confirmSwitchModal = document.getElementById('modal-confirm-switch');
+    dom.attendanceChoiceModal = document.getElementById('modal-attendance-choice');
+    dom.ocrModal = document.getElementById('modal-ocr-import');
+    dom.manualEntryModal = document.getElementById('modal-manual-entry');
 
-    // Academic Selectors
+    // Academic Selectors (Exact 10-tier flow)
     dom.selectState = document.getElementById('select-state');
     dom.selectUnivFilter = document.getElementById('select-university-filter');
-    dom.selectDistFilter = document.getElementById('select-district-filter');
+    dom.selectDistFilter = document.getElementById('select-district') || document.getElementById('select-district-filter');
     dom.collegeSearchInput = document.getElementById('college-search-input');
     dom.collegeOptionsList = document.getElementById('college-options-list');
     dom.selectedCollegeId = document.getElementById('selected-college-id');
+    dom.displayUniversity = document.getElementById('display-university');
     dom.selectCourse = document.getElementById('select-course');
     dom.selectBranch = document.getElementById('select-branch');
     dom.selectScheme = document.getElementById('select-scheme');
+    dom.selectAcademicYear = document.getElementById('select-academic-year');
     dom.selectYear = document.getElementById('select-year');
     dom.selectSemester = document.getElementById('select-semester');
     dom.curriculumConfirmContainer = document.getElementById('curriculum-confirmation-container');
     dom.switchProgramWarning = document.getElementById('switch-program-warning');
+
+    // Attendance Input Choice & OCR Elements
+    dom.btnChoiceOcr = document.getElementById('btn-choice-ocr');
+    dom.btnChoiceManual = document.getElementById('btn-choice-manual');
+    dom.ocrDropzone = document.getElementById('ocr-upload-dropzone');
+    dom.ocrFileInput = document.getElementById('ocr-file-input');
+    dom.ocrSpinner = document.getElementById('ocr-processing-spinner');
+    dom.ocrResultsContainer = document.getElementById('ocr-results-container');
+    dom.ocrTableBody = document.getElementById('ocr-table-body');
+    dom.ocrDetectedCount = document.getElementById('ocr-detected-count');
+    dom.btnSaveOcrAttendance = document.getElementById('btn-save-ocr-attendance');
+
+    // Batch Manual Entry Elements
+    dom.manualEntryContainer = document.getElementById('manual-entry-subjects-container');
+    dom.btnSaveManualAttendance = document.getElementById('btn-save-manual-attendance');
+
+    // Today's Decision ("What if I miss today?") Elements
+    dom.todayDecisionCard = document.getElementById('dashboard-today-decision');
+    dom.todaySubjectSelect = document.getElementById('today-subject-select');
+    dom.todayDecisionContent = document.getElementById('today-decision-content');
 
     // Containers
     dom.dashboardBunkHero = document.getElementById('dashboard-bunk-hero');
@@ -261,6 +286,7 @@
 
     if (dom.selectedCollegeId) dom.selectedCollegeId.value = collegeId;
     if (dom.collegeSearchInput) dom.collegeSearchInput.value = college.shortName ? college.shortName + ' — ' + college.name : college.name;
+    if (dom.displayUniversity) dom.displayUniversity.value = college.university || 'Visvesvaraya Technological University (VTU)';
 
     // Highlight selected item in list
     if (dom.collegeOptionsList) {
@@ -369,10 +395,12 @@
       return;
     }
 
-    var course = dom.selectCourse.value;
-    var branch = dom.selectBranch.value;
-    var scheme = dom.selectScheme.value;
-    var semester = dom.selectSemester.value;
+    var course = dom.selectCourse ? dom.selectCourse.value : 'B.E.';
+    var branch = dom.selectBranch ? dom.selectBranch.value : 'CSE – Cyber Security';
+    var scheme = dom.selectScheme ? dom.selectScheme.value : '2022 Scheme';
+    var semester = dom.selectSemester ? dom.selectSemester.value : '5th Semester';
+    var academicYear = dom.selectAcademicYear ? dom.selectAcademicYear.value : '2024-2025';
+    var year = dom.selectYear ? dom.selectYear.value : '3rd Year';
 
     var result = curriculumService.getCurriculum(collegeId, course, branch, scheme, semester);
     var college = curriculumService.getCollegeById(collegeId);
@@ -384,7 +412,9 @@
       pendingCurriculumData = Object.assign({}, result, {
         collegeId: collegeId,
         collegeName: college ? college.name : 'College',
-        shortName: college ? college.shortName : ''
+        shortName: college ? college.shortName : '',
+        academicYear: academicYear,
+        year: year
       });
 
       var subjectsHtml = '';
@@ -511,7 +541,7 @@
     store.applyCurriculum(curriculumData);
     showToast('Loaded ' + curriculumData.totalSubjects + ' official subjects for ' + (curriculumData.shortName || curriculumData.collegeName) + '! 🎓', 'success');
     closeAcademicModal();
-    navigateTo('dashboard');
+    openAttendanceChoiceModal();
   }
 
   function openAcademicModal() {
@@ -546,6 +576,319 @@
 
   function closeAcademicModal() {
     dom.academicModal.classList.remove('active');
+  }
+
+  // =========================================================================
+  // ATTENDANCE INPUT ONBOARDING MODALS (Option 1: Screenshot OCR, Option 2: Manual)
+  // =========================================================================
+
+  function openAttendanceChoiceModal() {
+    if (dom.attendanceChoiceModal) {
+      dom.attendanceChoiceModal.classList.add('active');
+    }
+  }
+
+  function closeAttendanceChoiceModal() {
+    if (dom.attendanceChoiceModal) {
+      dom.attendanceChoiceModal.classList.remove('active');
+    }
+    navigateTo('dashboard');
+  }
+
+  function openOcrModal() {
+    if (dom.ocrModal) {
+      if (dom.ocrResultsContainer) dom.ocrResultsContainer.classList.add('hidden');
+      if (dom.ocrSpinner) dom.ocrSpinner.classList.add('hidden');
+      if (dom.ocrFileInput) dom.ocrFileInput.value = '';
+      dom.ocrModal.classList.add('active');
+    }
+  }
+
+  function closeOcrModal() {
+    if (dom.ocrModal) {
+      dom.ocrModal.classList.remove('active');
+    }
+  }
+
+  function handleOcrFile(file) {
+    if (!file) return;
+    if (dom.ocrSpinner) dom.ocrSpinner.classList.remove('hidden');
+    if (dom.ocrResultsContainer) dom.ocrResultsContainer.classList.add('hidden');
+
+    ClassBunkerOCR.processImageFile(file, store.getSubjects(), function (result) {
+      if (dom.ocrSpinner) dom.ocrSpinner.classList.add('hidden');
+      if (!result.success || !result.rows || result.rows.length === 0) {
+        showToast('Could not extract attendance tables from this image. Please enter manually.', 'error');
+        return;
+      }
+
+      renderOcrResults(result.rows);
+      if (dom.ocrResultsContainer) dom.ocrResultsContainer.classList.remove('hidden');
+      showToast('Detected ' + result.totalFound + ' subjects from screenshot! 📷', 'success');
+    });
+  }
+
+  function renderOcrResults(rows) {
+    if (!dom.ocrTableBody) return;
+    var html = '';
+
+    rows.forEach(function (r, idx) {
+      var confBadge = r.confidence === 'high' 
+        ? '<span class="badge-tag safe" style="color:var(--color-safe); background:var(--color-safe-bg);">✓ High Confidence</span>' 
+        : '<span class="badge-tag warning" style="color:var(--color-warning); background:var(--color-warning-bg);">⚠️ Verify Values</span>';
+
+      html +=
+        '<tr data-idx="' + idx + '" data-sub-id="' + (r.matchedOfficialId || '') + '" data-sub-name="' + escapeHtml(r.subjectName) + '" data-sub-code="' + escapeHtml(r.code || '') + '">' +
+          '<td>' +
+            '<div style="font-weight:700; font-size:0.85rem;">' + escapeHtml(r.subjectName) + '</div>' +
+            (r.code ? '<span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">' + escapeHtml(r.code) + '</span>' : '') +
+          '</td>' +
+          '<td><input type="number" class="form-input ocr-input-att" min="0" max="300" value="' + r.attended + '" style="width:70px; padding:0.3rem 0.4rem; text-align:center;"></td>' +
+          '<td><input type="number" class="form-input ocr-input-cond" min="0" max="300" value="' + r.conducted + '" style="width:70px; padding:0.3rem 0.4rem; text-align:center;"></td>' +
+          '<td><span class="ocr-row-pct" style="font-weight:700; font-size:0.85rem;">' + r.percentage + '%</span></td>' +
+          '<td>' + confBadge + '</td>' +
+        '</tr>';
+    });
+
+    dom.ocrTableBody.innerHTML = html;
+    if (dom.ocrDetectedCount) dom.ocrDetectedCount.textContent = rows.length + ' subjects detected';
+
+    // Live update percentage on cell input
+    dom.ocrTableBody.querySelectorAll('tr').forEach(function (tr) {
+      var attInp = tr.querySelector('.ocr-input-att');
+      var condInp = tr.querySelector('.ocr-input-cond');
+      var pctSpan = tr.querySelector('.ocr-row-pct');
+
+      function updatePct() {
+        var a = parseInt(attInp.value, 10) || 0;
+        var c = parseInt(condInp.value, 10) || 0;
+        if (a > c) {
+          c = a;
+          condInp.value = c;
+        }
+        var pct = engine.calculatePercentage(a, c);
+        pctSpan.textContent = pct + '%';
+      }
+
+      attInp.addEventListener('input', updatePct);
+      condInp.addEventListener('input', updatePct);
+    });
+  }
+
+  function saveOcrAttendance() {
+    if (!dom.ocrTableBody) return;
+    var trs = dom.ocrTableBody.querySelectorAll('tr');
+    var updates = [];
+
+    trs.forEach(function (tr) {
+      var subId = tr.getAttribute('data-sub-id');
+      var subName = tr.getAttribute('data-sub-name');
+      var subCode = tr.getAttribute('data-sub-code');
+      var att = parseInt(tr.querySelector('.ocr-input-att').value, 10) || 0;
+      var cond = parseInt(tr.querySelector('.ocr-input-cond').value, 10) || 0;
+
+      updates.push({
+        id: subId,
+        name: subName,
+        code: subCode,
+        attended: att,
+        conducted: cond
+      });
+    });
+
+    var count = store.batchUpdateAttendance(updates);
+    showToast('Applied attendance for ' + count + ' subjects from screenshot! 📷', 'success');
+    closeOcrModal();
+    navigateTo('dashboard');
+  }
+
+  function openManualEntryModal() {
+    var subjects = store.getSubjects();
+    if (!subjects || subjects.length === 0) {
+      showToast('Please load or add subjects first', 'info');
+      openAcademicModal();
+      return;
+    }
+    renderManualEntryList();
+    if (dom.manualEntryModal) {
+      dom.manualEntryModal.classList.add('active');
+    }
+  }
+
+  function closeManualEntryModal() {
+    if (dom.manualEntryModal) {
+      dom.manualEntryModal.classList.remove('active');
+    }
+  }
+
+  function renderManualEntryList() {
+    if (!dom.manualEntryContainer) return;
+    var subjects = store.getSubjects();
+    var html = '';
+
+    subjects.forEach(function (sub) {
+      var pct = engine.calculatePercentage(sub.attended, sub.conducted);
+      var status = engine.determineStatus(pct, sub.required);
+
+      html +=
+        '<div class="manual-entry-row" data-id="' + sub.id + '" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.75rem 0.5rem; border-bottom:1px solid var(--border-subtle); flex-wrap:wrap;">' +
+          '<div style="flex:1; min-width:180px;">' +
+            '<div style="font-weight:700; font-size:0.9rem;">' + (sub.code ? '<span style="color:var(--color-primary); font-family:var(--font-mono); margin-right:0.35rem;">' + escapeHtml(sub.code) + '</span>' : '') + escapeHtml(sub.name) + '</div>' +
+            '<div style="font-size:0.75rem; color:var(--text-muted);">' + escapeHtml(sub.category || '') + (sub.isLab ? ' • Lab' : '') + ' • Required: ' + sub.required + '%</div>' +
+          '</div>' +
+          '<div style="display:flex; align-items:center; gap:0.75rem;">' +
+            '<div style="display:flex; align-items:center; gap:0.35rem;">' +
+              '<label style="font-size:0.75rem; color:var(--text-secondary); font-weight:600;">Att:</label>' +
+              '<input type="number" class="form-input manual-input-att" min="0" max="300" value="' + sub.attended + '" style="width:70px; padding:0.35rem 0.5rem; text-align:center;">' +
+            '</div>' +
+            '<div style="display:flex; align-items:center; gap:0.35rem;">' +
+              '<label style="font-size:0.75rem; color:var(--text-secondary); font-weight:600;">Cond:</label>' +
+              '<input type="number" class="form-input manual-input-cond" min="0" max="300" value="' + sub.conducted + '" style="width:70px; padding:0.35rem 0.5rem; text-align:center;">' +
+            '</div>' +
+            '<div class="manual-row-pct-pill status-badge ' + status.status + '" style="min-width:65px; text-align:center; font-size:0.8rem; font-weight:700;">' +
+              pct + '%' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    });
+
+    dom.manualEntryContainer.innerHTML = html;
+
+    // Attach live change listener to inputs
+    dom.manualEntryContainer.querySelectorAll('.manual-entry-row').forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      var sub = store.getSubject(id);
+      var req = sub ? sub.required : 75;
+      var attInput = row.querySelector('.manual-input-att');
+      var condInput = row.querySelector('.manual-input-cond');
+      var pill = row.querySelector('.manual-row-pct-pill');
+
+      function updateLivePill() {
+        var a = parseInt(attInput.value, 10) || 0;
+        var c = parseInt(condInput.value, 10) || 0;
+        if (a > c) {
+          c = a;
+          condInput.value = c;
+        }
+        var p = engine.calculatePercentage(a, c);
+        var st = engine.determineStatus(p, req);
+        pill.className = 'manual-row-pct-pill status-badge ' + st.status;
+        pill.textContent = p + '%';
+      }
+
+      attInput.addEventListener('input', updateLivePill);
+      condInput.addEventListener('input', updateLivePill);
+    });
+  }
+
+  function saveManualBatchAttendance() {
+    if (!dom.manualEntryContainer) return;
+    var rows = dom.manualEntryContainer.querySelectorAll('.manual-entry-row');
+    var updates = [];
+
+    rows.forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      var att = parseInt(row.querySelector('.manual-input-att').value, 10) || 0;
+      var cond = parseInt(row.querySelector('.manual-input-cond').value, 10) || 0;
+      updates.push({ id: id, attended: att, conducted: cond });
+    });
+
+    var count = store.batchUpdateAttendance(updates);
+    showToast('Saved attendance for ' + count + ' subjects! ✏️', 'success');
+    closeManualEntryModal();
+    navigateTo('dashboard');
+  }
+
+  // =========================================================================
+  // TODAY'S DECISION: "WHAT IF I MISS TODAY?" CARD
+  // =========================================================================
+
+  function renderTodayDecision() {
+    if (!dom.todayDecisionCard || !dom.todayDecisionContent) return;
+
+    var subjects = store.getSubjects();
+    if (!subjects || subjects.length === 0) {
+      dom.todayDecisionCard.classList.add('hidden');
+      return;
+    }
+    dom.todayDecisionCard.classList.remove('hidden');
+
+    // Populate dropdown
+    if (dom.todaySubjectSelect) {
+      var currentVal = dom.todaySubjectSelect.value;
+      var optsHtml = '';
+      subjects.forEach(function (s) {
+        optsHtml += '<option value="' + s.id + '">' + (s.code ? s.code + ' - ' : '') + escapeHtml(s.name) + '</option>';
+      });
+      dom.todaySubjectSelect.innerHTML = optsHtml;
+      if (currentVal && subjects.some(function (s) { return s.id === currentVal; })) {
+        dom.todaySubjectSelect.value = currentVal;
+      } else {
+        dom.todaySubjectSelect.value = subjects[0].id;
+      }
+    }
+
+    var selectedId = dom.todaySubjectSelect ? dom.todaySubjectSelect.value : subjects[0].id;
+    var sub = store.getSubject(selectedId) || subjects[0];
+    var att = sub.attended;
+    var cond = sub.conducted;
+    var req = sub.required || 75;
+
+    // Current
+    var currentPct = engine.calculatePercentage(att, cond);
+
+    // If Attend Today
+    var attendAtt = att + 1;
+    var attendCond = cond + 1;
+    var attendPct = engine.calculatePercentage(attendAtt, attendCond);
+    var attendDiff = Math.round((attendPct - currentPct) * 100) / 100;
+
+    // If Miss Today
+    var missAtt = att;
+    var missCond = cond + 1;
+    var missPct = engine.calculatePercentage(missAtt, missCond);
+    var missDiff = Math.round((currentPct - missPct) * 100) / 100;
+
+    // Safe to miss today?
+    var isSafeToMiss = (missAtt / missCond) >= (req / 100);
+
+    var verdictClass = isSafeToMiss ? 'safe' : 'danger';
+    var verdictIcon = isSafeToMiss ? '🟢' : '🔴';
+    var verdictTitle = isSafeToMiss ? 'YES — SAFE TO MISS TODAY!' : 'NO — DO NOT MISS TODAY!';
+    var verdictSubtitle = '';
+
+    if (isSafeToMiss) {
+      var remainingBunks = engine.calculateSafeBunks(missAtt, missCond, req);
+      verdictSubtitle = 'Attendance drops to <strong>' + missPct + '%</strong>, remaining safely above your ' + req + '% requirement. <strong>' + remainingBunks + ' more safe ' + (remainingBunks === 1 ? 'bunk' : 'bunks') + '</strong> remaining after today.';
+    } else {
+      var recoveryConsecutive = engine.calculateRecoveryClasses(missAtt, missCond, req);
+      verdictSubtitle = 'Missing today drops attendance to <strong>' + missPct + '%</strong> (below ' + req + '% requirement). You will need to attend <strong>' + recoveryConsecutive + ' consecutive classes</strong> to recover eligibility.';
+    }
+
+    dom.todayDecisionContent.innerHTML = 
+      '<div class="today-decision-verdict ' + verdictClass + '" style="margin-bottom:1rem; padding:0.85rem 1rem; border-radius:var(--radius-md); background:var(--color-' + (isSafeToMiss ? 'safe' : 'danger') + '-bg); border:1px solid var(--color-' + (isSafeToMiss ? 'safe' : 'danger') + ');">' +
+        '<div style="font-size:1.1rem; font-weight:800; color:var(--color-' + (isSafeToMiss ? 'safe' : 'danger') + '); display:flex; align-items:center; gap:0.5rem;">' +
+          '<span>' + verdictIcon + '</span>' +
+          '<span>' + verdictTitle + '</span>' +
+        '</div>' +
+        '<div style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.35rem; line-height:1.4;">' +
+          verdictSubtitle +
+        '</div>' +
+      '</div>' +
+
+      '<div class="today-scenarios-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">' +
+        '<div class="scenario-box" style="background:var(--bg-tertiary); padding:0.75rem 1rem; border-radius:var(--radius-md); border-left:4px solid var(--color-safe);">' +
+          '<div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">If You Attend Today</div>' +
+          '<div style="font-size:1.4rem; font-weight:800; color:var(--color-safe); margin:0.25rem 0;">' + attendPct + '% <span style="font-size:0.8rem; font-weight:600;">(+' + (attendDiff >= 0 ? '+' : '') + attendDiff + '%)</span></div>' +
+          '<div style="font-size:0.78rem; color:var(--text-secondary);">' + attendAtt + ' of ' + attendCond + ' classes attended</div>' +
+        '</div>' +
+
+        '<div class="scenario-box" style="background:var(--bg-tertiary); padding:0.75rem 1rem; border-radius:var(--radius-md); border-left:4px solid var(--color-' + (isSafeToMiss ? 'warning' : 'danger') + ');">' +
+          '<div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">If You Miss Today</div>' +
+          '<div style="font-size:1.4rem; font-weight:800; color:var(--color-' + (isSafeToMiss ? 'warning' : 'danger') + '); margin:0.25rem 0;">' + missPct + '% <span style="font-size:0.8rem; font-weight:600;">(-' + missDiff + '%)</span></div>' +
+          '<div style="font-size:0.78rem; color:var(--text-secondary);">' + missAtt + ' of ' + missCond + ' classes attended</div>' +
+        '</div>' +
+      '</div>';
   }
 
   // =========================================================================
@@ -714,6 +1057,7 @@
       '</div>';
 
     renderDashboardSubjectList(overall.subjects);
+    renderTodayDecision();
   }
 
   function renderDashboardSubjectList(subjects) {
@@ -1550,6 +1894,90 @@
       });
     }
 
+    // Today's Decision Subject Selector Listener
+    if (dom.todaySubjectSelect) {
+      dom.todaySubjectSelect.addEventListener('change', renderTodayDecision);
+    }
+
+    // Dashboard Update Attendance Button
+    var dashAddAttBtn = document.getElementById('btn-dashboard-add-attendance');
+    if (dashAddAttBtn) {
+      dashAddAttBtn.addEventListener('click', openAttendanceChoiceModal);
+    }
+
+    // Subject Management Buttons
+    var openOcrBtn = document.getElementById('btn-open-ocr-modal');
+    if (openOcrBtn) {
+      openOcrBtn.addEventListener('click', openOcrModal);
+    }
+
+    var syncCurricBtn = document.getElementById('btn-sync-curriculum-again');
+    if (syncCurricBtn) {
+      syncCurricBtn.addEventListener('click', openAcademicModal);
+    }
+
+    // Attendance Input Choice Modal
+    if (dom.btnChoiceOcr) {
+      dom.btnChoiceOcr.addEventListener('click', function () {
+        closeAttendanceChoiceModal();
+        openOcrModal();
+      });
+    }
+
+    if (dom.btnChoiceManual) {
+      dom.btnChoiceManual.addEventListener('click', function () {
+        closeAttendanceChoiceModal();
+        openManualEntryModal();
+      });
+    }
+
+    // OCR Dropzone & Upload Listeners
+    if (dom.ocrDropzone && dom.ocrFileInput) {
+      dom.ocrDropzone.addEventListener('click', function () {
+        dom.ocrFileInput.click();
+      });
+
+      dom.ocrDropzone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dom.ocrDropzone.classList.add('drag-active');
+      });
+
+      dom.ocrDropzone.addEventListener('dragleave', function () {
+        dom.ocrDropzone.classList.remove('drag-active');
+      });
+
+      dom.ocrDropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dom.ocrDropzone.classList.remove('drag-active');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleOcrFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      dom.ocrFileInput.addEventListener('change', function (e) {
+        if (e.target.files && e.target.files[0]) {
+          handleOcrFile(e.target.files[0]);
+        }
+      });
+    }
+
+    if (dom.btnSaveOcrAttendance) {
+      dom.btnSaveOcrAttendance.addEventListener('click', saveOcrAttendance);
+    }
+
+    // Batch Manual Attendance Save
+    if (dom.btnSaveManualAttendance) {
+      dom.btnSaveManualAttendance.addEventListener('click', saveManualBatchAttendance);
+    }
+
+    // Modal Dismiss Listeners
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var modal = this.closest('.modal-overlay');
+        if (modal) modal.classList.remove('active');
+      });
+    });
+
     // Clear All Data
     var clearAllBtn = document.getElementById('btn-clear-all-data');
     if (clearAllBtn) {
@@ -1600,6 +2028,13 @@
     window.ClassBunkerApp = {
       openAcademicModal: openAcademicModal,
       closeAcademicModal: closeAcademicModal,
+      openAttendanceChoiceModal: openAttendanceChoiceModal,
+      closeAttendanceChoiceModal: closeAttendanceChoiceModal,
+      openOcrModal: openOcrModal,
+      closeOcrModal: closeOcrModal,
+      openManualEntryModal: openManualEntryModal,
+      closeManualEntryModal: closeManualEntryModal,
+      renderTodayDecision: renderTodayDecision,
       openSubjectModal: openSubjectModal,
       closeSubjectModal: closeSubjectModal,
       navigateTo: navigateTo,

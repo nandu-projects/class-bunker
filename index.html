@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Class Bunker — Universal Attendance Planner</title>
-  <meta name="description" content="Curriculum-aware universal attendance planning application for college students in Karnataka and beyond. Bunk smart, stay eligible.">
+  <meta name="description" content="Curriculum-aware universal attendance planning application for college students across Karnataka. Bunk smart, stay eligible.">
   <meta name="theme-color" content="#0a0e17">
 
   <!-- PWA Manifest & App Icons (#20) -->
@@ -79,7 +79,7 @@
 
         <div class="hero-actions">
           <button class="btn btn-primary btn-lg" id="landing-btn-calc" style="font-size:1.05rem; padding:0.75rem 1.75rem;">
-            <span>🚀</span> Select My College & Curriculum
+            <span>🚀</span> Select College &amp; Curriculum
           </button>
           <button class="btn btn-secondary btn-lg" id="landing-btn-demo" style="font-size:1.05rem; padding:0.75rem 1.75rem;">
             <span>🧪</span> Try Demo Mode (Simulated Data)
@@ -91,32 +91,32 @@
           <div class="feature-card">
             <div class="feature-icon">🏛️</div>
             <h3>Official Curriculum Discovery</h3>
-            <p>Select Karnataka &gt; College &gt; Branch &gt; Semester to automatically load your institution's verified course list.</p>
+            <p>Select Karnataka &gt; District &gt; College &gt; Branch &gt; Semester to automatically load your institution's verified course list.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📷</div>
+            <h3>Screenshot Import / OCR</h3>
+            <p>Upload screenshots from DSI Student or college ERPs. Automatic attendance extraction with full verification table.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Today's Decision</h3>
+            <p>"What if I miss today?" Select any class to see the exact percentage impact and get a clear YES/NO recommendation.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">🎯</div>
-            <h3>Know Safe Bunks</h3>
-            <p>Integer-exact formula computes the maximum future classes you can safely miss while remaining at or above your required percentage.</p>
+            <h3>Integer-Exact Safe Bunks</h3>
+            <p>Calculates the mathematically exact maximum number of classes you can miss while staying above your required threshold.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">🎲</div>
             <h3>What-If Bunk Simulator</h3>
-            <p>Simulate missing or attending classes before bunking to preview percentage shifts and safe buffer changes in real time.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <h3>Attendance Recovery</h3>
-            <p>Fell below eligibility? Calculate the exact consecutive classes you must attend to restore your standing.</p>
+            <p>Simulate missing or attending future classes to preview percentage shifts and safe buffer changes in real time.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">🔒</div>
             <h3>100% Private & PWA Offline</h3>
             <p>Zero credentials, no USN, and no accounts required. Fully installable PWA that works offline on mobile and desktop.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📋</div>
-            <h3>Institutional Rules</h3>
-            <p>Supports VTU, VTU Autonomous (BMSCE, RVCE, DSCE, MSRIT, BIT), and state universities with verified regulations.</p>
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@
       <!-- Academic identity & Provenance strip (#17) -->
       <div id="college-info-strip" class="curriculum-provenance-bar"></div>
 
-      <!-- Primary Answer Hero Card (#14) -->
+      <!-- Primary Answer Hero Card (#14, #17) -->
       <div id="dashboard-bunk-hero" class="bunk-hero-card" aria-live="polite">
         <!-- Rendered dynamically -->
       </div>
@@ -145,12 +145,32 @@
         <!-- Rendered dynamically -->
       </div>
 
+      <!-- TODAY'S DECISION ("WHAT IF I MISS TODAY?") CARD -->
+      <div id="dashboard-today-decision" class="today-decision-card">
+        <div class="today-decision-header">
+          <div class="today-decision-title">
+            <span>⚡</span> Today's Decision: "What if I miss today?"
+          </div>
+          <div style="min-width: 220px;">
+            <select id="today-subject-select" class="form-select" style="padding:0.4rem 0.65rem; font-size:0.85rem;">
+              <!-- Populated dynamically with active subjects -->
+            </select>
+          </div>
+        </div>
+        <div id="today-decision-content">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
       <!-- Subjects Quick View Section -->
       <div class="section-header">
         <h2 class="section-title">
           <span>📚</span> Subject Attendance Overview
         </h2>
         <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button class="btn btn-secondary btn-sm" id="btn-dashboard-add-attendance">
+            <span>📷</span> Update Attendance
+          </button>
           <button class="btn btn-secondary btn-sm" data-view="subjects">View All Subjects &rarr;</button>
         </div>
       </div>
@@ -171,7 +191,10 @@
             Track, edit, or log attendance for official curriculum and custom subjects.
           </p>
         </div>
-        <div style="display:flex; gap:0.5rem;">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="btn-open-ocr-modal">
+            <span>📷</span> Screenshot OCR
+          </button>
           <button class="btn btn-secondary" id="btn-sync-curriculum-again">
             <span>🔄</span> Re-sync Curriculum
           </button>
@@ -466,7 +489,7 @@
   <footer class="app-footer">
     <div class="footer-content">
       <div>
-        <strong>Class Bunker</strong> — Universal Attendance Planning. Built for college students everywhere.
+        <strong>Class Bunker</strong> — Universal Attendance Planning for Karnataka &amp; beyond.
       </div>
       <div style="font-size:0.8rem; color:var(--text-muted);">
         Always cross-verify your institution's official eligibility notices.
@@ -476,11 +499,11 @@
 
   <!-- ==================== MODALS ==================== -->
 
-  <!-- 1. ACADEMIC IDENTITY & CURRICULUM DISCOVERY MODAL (#1, #2, #5, #6, #7, #8, #11, #12) -->
+  <!-- 1. ACADEMIC IDENTITY & CURRICULUM DISCOVERY MODAL (Exact 10-Tier Flow) -->
   <div id="modal-academic-setup" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="academic-modal-title">
-    <div class="modal-dialog" style="max-width: 620px;">
+    <div class="modal-dialog" style="max-width: 640px;">
       <div class="modal-header">
-        <h3 id="academic-modal-title" class="modal-title">Select Your Academic Program 🏛️</h3>
+        <h3 id="academic-modal-title" class="modal-title">Select Academic Identity 🏛️</h3>
         <button class="tool-icon-btn" data-dismiss="modal" aria-label="Close modal">✕</button>
       </div>
 
@@ -489,43 +512,35 @@
         <div id="switch-program-warning" class="switch-program-warning hidden">
           <span>⚠️</span>
           <div>
-            <strong>Notice:</strong> Changing your college, course, branch, or semester will replace your currently tracked subject list.
+            <strong>Notice:</strong> Changing your academic program will replace your currently tracked subject list.
           </div>
         </div>
 
-        <!-- Cascading Selectors (ZERO MANUAL TYPING) -->
-        <div style="display:flex; flex-direction:column; gap:1rem;">
+        <!-- 10-TIER CASCADING SELECTORS (ZERO MANUAL TYPING) -->
+        <div style="display:flex; flex-direction:column; gap:0.85rem;">
           
-          <!-- State (Karnataka) -->
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label" for="select-state">State</label>
-            <select id="select-state" class="form-select">
-              <option value="Karnataka" selected>Karnataka (Authoritative University Directory)</option>
-            </select>
-          </div>
-
-          <!-- University & District Filters -->
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+          <!-- 1. State (Karnataka) & 2. District -->
+          <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:0.75rem;">
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-university-filter">University Filter</label>
-              <select id="select-university-filter" class="form-select">
-                <option value="">All Universities</option>
+              <label class="form-label" for="select-state">1. State</label>
+              <select id="select-state" class="form-select">
+                <option value="Karnataka" selected>Karnataka</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-district-filter">District Filter</label>
-              <select id="select-district-filter" class="form-select">
-                <option value="">All Districts</option>
+              <label class="form-label" for="select-district">2. District *</label>
+              <select id="select-district" class="form-select">
+                <option value="All Districts">All Districts (31 Districts)</option>
               </select>
             </div>
           </div>
 
-          <!-- Searchable College Selector Combobox (#2, #12) -->
+          <!-- 3. Searchable College Selector Combobox & 4. University Affiliation -->
           <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label" for="college-search-input">Search &amp; Select College *</label>
+            <label class="form-label" for="college-search-input">3. Select College * (Search by name, code or abbreviation)</label>
             <div class="college-search-box">
               <span class="college-search-icon">🔍</span>
-              <input type="text" id="college-search-input" class="form-input college-search-input" placeholder="Type to filter colleges (e.g. DSATM, Acharya, BMSCE)...">
+              <input type="text" id="college-search-input" class="form-input college-search-input" placeholder="Type to filter colleges (e.g. DSATM, Acharya, BMSCE, NIE)...">
             </div>
 
             <!-- Scrollable list of matched colleges -->
@@ -535,33 +550,51 @@
             <input type="hidden" id="selected-college-id" value="">
           </div>
 
-          <!-- Course & Branch Selectors (#5, #6) -->
+          <!-- 4. University Display (Auto-resolved from college or selectable) -->
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="display-university">4. University Affiliation</label>
+            <input type="text" id="display-university" class="form-input" readonly value="Visvesvaraya Technological University (VTU)" style="opacity:0.85; background:var(--bg-tertiary);">
+          </div>
+
+          <!-- 5. Course & 6. Branch Selectors -->
           <div style="display:grid; grid-template-columns: 1fr 1.4fr; gap:0.75rem;">
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-course">Course *</label>
+              <label class="form-label" for="select-course">5. Course *</label>
               <select id="select-course" class="form-select">
                 <option value="B.E." selected>B.E.</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-branch">Branch / Program *</label>
+              <label class="form-label" for="select-branch">6. Branch / Program *</label>
               <select id="select-branch" class="form-select">
                 <!-- Dynamically populated based on College & Course -->
               </select>
             </div>
           </div>
 
-          <!-- Scheme, Year & Semester (#7, #8) -->
-          <div style="display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:0.75rem;">
+          <!-- 7. Scheme & 8. Academic Year -->
+          <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:0.75rem;">
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-scheme">Academic Scheme *</label>
+              <label class="form-label" for="select-scheme">7. Scheme *</label>
               <select id="select-scheme" class="form-select">
                 <option value="2022 Scheme" selected>2022 Scheme</option>
                 <option value="2021 Scheme">2021 Scheme</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-year">Year *</label>
+              <label class="form-label" for="select-academic-year">8. Academic Year *</label>
+              <select id="select-academic-year" class="form-select">
+                <option value="2024-2025" selected>2024-2025</option>
+                <option value="2023-2024">2023-2024</option>
+                <option value="2025-2026">2025-2026</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 9. Year & 10. Semester -->
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="select-year">9. Year *</label>
               <select id="select-year" class="form-select">
                 <option value="1st Year">1st Year</option>
                 <option value="2nd Year">2nd Year</option>
@@ -570,7 +603,7 @@
               </select>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="select-semester">Semester *</label>
+              <label class="form-label" for="select-semester">10. Semester *</label>
               <select id="select-semester" class="form-select">
                 <option value="5th Semester" selected>5th Semester</option>
                 <option value="6th Semester">6th Semester</option>
@@ -579,12 +612,12 @@
           </div>
 
           <!-- Action Button: Find Curriculum -->
-          <div style="margin-top:0.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <div style="margin-top:0.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-fill-dsatm">
               🏛️ Quick Select DSATM (CSE - Cyber Security)
             </button>
             <button type="button" class="btn btn-primary" id="btn-discover-curriculum">
-              <span>🔍</span> Discover Curriculum &rarr;
+              <span>🔍</span> Discover Official Curriculum &rarr;
             </button>
           </div>
 
@@ -604,7 +637,122 @@
     </div>
   </div>
 
-  <!-- 2. ADD / EDIT MANUAL SUBJECT MODAL (#4, #18) -->
+  <!-- 2. ATTENDANCE INPUT CHOICE MODAL (Option 1: Screenshot OCR, Option 2: Manual) -->
+  <div id="modal-attendance-choice" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-dialog" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title">How do you want to add your attendance?</h3>
+        <button class="tool-icon-btn" data-dismiss="modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1rem;">
+          Your official subjects are confirmed! Choose your preferred way to input initial attendance figures:
+        </p>
+
+        <div class="input-choice-grid">
+          <div class="input-choice-card" id="btn-choice-ocr">
+            <span class="input-choice-icon">📷</span>
+            <span class="input-choice-title">Import from Screenshot</span>
+            <p class="input-choice-desc">Upload attendance screenshot from DSI Student, College ERP, or mobile app. Auto-detects attendance with editable confirmation.</p>
+          </div>
+          <div class="input-choice-card" id="btn-choice-manual">
+            <span class="input-choice-icon">✏️</span>
+            <span class="input-choice-title">Enter Manually</span>
+            <p class="input-choice-desc">Quickly enter attended and conducted counts for each subject. Percentages are calculated automatically.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Skip for Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. UNIVERSAL SCREENSHOT IMPORT / OCR MODAL -->
+  <div id="modal-ocr-import" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-dialog" style="max-width: 660px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Universal Screenshot Import 📷</h3>
+        <button class="tool-icon-btn" data-dismiss="modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">
+          Upload a screenshot from <strong>ANY</strong> student portal, ERP, or college attendance mobile app (e.g. DSI Student, Contineo, SAP, portal tables).
+        </p>
+
+        <div class="ocr-dropzone" id="ocr-upload-dropzone">
+          <div class="ocr-dropzone-icon">📷</div>
+          <div style="font-weight:700; font-size:1rem;">Click to upload screenshot, or drag and drop image here</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Supports PNG, JPG, WebP. 100% Client-Side Privacy. No passwords required.</div>
+          <input type="file" id="ocr-file-input" accept="image/*" class="hidden">
+        </div>
+
+        <div id="ocr-processing-spinner" class="hidden" style="text-align:center; padding:1.5rem;">
+          <div style="font-size:1.5rem; margin-bottom:0.5rem;">⏳</div>
+          <div style="font-weight:700;">Scanning screenshot and extracting attendance tables...</div>
+        </div>
+
+        <!-- OCR Confirmation Table -->
+        <div id="ocr-results-container" class="hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h4 style="font-size:0.95rem; font-weight:800;">Detected Attendance Table (Confirm &amp; Adjust):</h4>
+            <span id="ocr-detected-count" style="font-size:0.75rem; color:var(--text-muted);"></span>
+          </div>
+
+          <div class="ocr-table-container">
+            <table class="ocr-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th style="width:90px;">Attended</th>
+                  <th style="width:90px;">Conducted</th>
+                  <th style="width:85px;">Percentage</th>
+                  <th>Verification</th>
+                </tr>
+              </thead>
+              <tbody id="ocr-table-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; flex-wrap:wrap; gap:0.5rem;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">⚠️ Review highlighted fields if confidence is flagged.</span>
+            <button type="button" class="btn btn-primary" id="btn-save-ocr-attendance">
+              Confirm &amp; Save Attendance &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. MANUAL ATTENDANCE BATCH ENTRY MODAL -->
+  <div id="modal-manual-entry" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-dialog" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Enter Attendance For Subjects ✏️</h3>
+        <button class="tool-icon-btn" data-dismiss="modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">
+          Enter classes attended and conducted. Attendance percentage updates live automatically.
+        </p>
+
+        <div id="manual-entry-subjects-container" class="manual-entry-list">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:1.25rem;">
+          <button type="button" class="btn btn-primary" id="btn-save-manual-attendance">
+            Save &amp; Open Dashboard &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. ADD / EDIT MANUAL SUBJECT MODAL (#4, #18) -->
   <div id="modal-subject" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="subject-modal-title">
     <div class="modal-dialog">
       <div class="modal-header">
@@ -672,7 +820,7 @@
     </div>
   </div>
 
-  <!-- 3. PROGRAM SWITCH CONFIRMATION MODAL (#28) -->
+  <!-- 6. PROGRAM SWITCH CONFIRMATION MODAL (#28) -->
   <div id="modal-confirm-switch" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-dialog" style="max-width: 440px;">
       <div class="modal-header">
@@ -698,10 +846,12 @@
   <div id="toast-container" class="toast-container" aria-live="assertive"></div>
 
   <!-- Data Scripts (Curriculum Model & Services) -->
+  <script src="js/data/districts.js"></script>
   <script src="js/data/universities.js"></script>
   <script src="js/data/colleges.js"></script>
   <script src="js/data/curricula.js"></script>
   <script src="js/curriculumService.js"></script>
+  <script src="js/ocrParser.js"></script>
 
   <!-- Core Engine & Application Scripts -->
   <script src="js/engine.js"></script>

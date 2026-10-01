@@ -1,25 +1,29 @@
 /**
- * Class Bunker - Curriculum & Academic Registry Service
- * Orchestrates multi-tier institution lookup, program resolution, and verified curriculum retrieval.
+ * Class Bunker - Curriculum & Academic Registry Service (10-Tier Flow)
+ * 
+ * Orchestrates multi-tier academic lookup matching the exact flow:
+ * Karnataka -> District -> College -> University -> Course -> Branch -> Scheme -> Academic Year -> Year -> Semester -> Official Subjects
  */
 
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
-    define(['./data/universities', './data/colleges', './data/curricula'], factory);
+    define(['./data/districts', './data/universities', './data/colleges', './data/curricula'], factory);
   } else if (typeof module === 'object' && module.exports) {
     module.exports = factory(
+      require('./data/districts'),
       require('./data/universities'),
       require('./data/colleges'),
       require('./data/curricula')
     );
   } else {
     root.ClassBunkerCurriculumService = factory(
+      root.ClassBunkerDistricts,
       root.ClassBunkerUniversities,
       root.ClassBunkerColleges,
       root.ClassBunkerCurricula
     );
   }
-}(typeof self !== 'undefined' ? self : this, function (universities, colleges, curricula) {
+}(typeof self !== 'undefined' ? self : this, function (districts, universities, colleges, curricula) {
   'use strict';
 
   var CurriculumService = {};
@@ -35,6 +39,12 @@
       'Mechanical Engineering',
       'Civil Engineering'
     ],
+    'B.Tech': [
+      'Computer Science and Engineering',
+      'Artificial Intelligence and Data Science',
+      'Cyber Security',
+      'Information Technology'
+    ],
     'M.Tech': [
       'Computer Science and Engineering',
       'VLSI Design and Embedded Systems',
@@ -49,40 +59,31 @@
   };
 
   /**
-   * Get list of supported States
+   * 1. Get States (Karnataka primary)
    */
   CurriculumService.getStates = function () {
     return ['Karnataka'];
   };
 
   /**
-   * Get Universities list
+   * 2. Get All 31 Districts of Karnataka
    */
-  CurriculumService.getUniversities = function (state) {
-    if (!state || state === 'Karnataka') {
-      return universities;
+  CurriculumService.getDistricts = function () {
+    if (Array.isArray(districts)) {
+      return districts.map(function (d) { return d.name; }).sort();
     }
-    return universities.filter(function (u) { return u.state === state; });
+    return [
+      'Bagalkote', 'Ballari', 'Belagavi', 'Bengaluru Rural', 'Bengaluru Urban',
+      'Bidar', 'Chamarajanagar', 'Chikkaballapura', 'Chikkamagaluru', 'Chitradurga',
+      'Dakshina Kannada', 'Davanagere', 'Dharwad', 'Gadag', 'Hassan',
+      'Haveri', 'Kalaburagi', 'Kodagu', 'Kolar', 'Koppal',
+      'Mandya', 'Mysuru', 'Raichur', 'Ramanagara', 'Shivamogga',
+      'Tumakuru', 'Udupi', 'Uttara Kannada', 'Vijayanagara', 'Vijayapura', 'Yadgir'
+    ];
   };
 
   /**
-   * Get unique districts where colleges exist
-   */
-  CurriculumService.getDistricts = function (state, universityId) {
-    var pool = colleges;
-    if (universityId) {
-      pool = pool.filter(function (c) { return c.universityId === universityId; });
-    }
-    var districts = {};
-    pool.forEach(function (c) {
-      if (c.district) districts[c.district] = true;
-    });
-    return Object.keys(districts).sort();
-  };
-
-  /**
-   * Search and filter colleges
-   * Filters by State, University, District, and normalized text query
+   * 3. Get Colleges filtered by District, University, or Query
    */
   CurriculumService.getColleges = function (filter) {
     filter = filter || {};
@@ -92,7 +93,7 @@
 
     return colleges.filter(function (col) {
       if (univId && col.universityId !== univId) return false;
-      if (district && col.district !== district) return false;
+      if (district && district !== 'All Districts' && col.district !== district) return false;
 
       if (query) {
         var matchName = col.name.toLowerCase().indexOf(query) !== -1;
@@ -106,15 +107,25 @@
     });
   };
 
-  /**
-   * Find college by ID
-   */
   CurriculumService.getCollegeById = function (id) {
     return colleges.find(function (c) { return c.id === id; });
   };
 
   /**
-   * Get courses available at a selected college (Requirement #5)
+   * 4. Get University affiliation for selected college
+   */
+  CurriculumService.getUniversityForCollege = function (collegeId) {
+    var col = CurriculumService.getCollegeById(collegeId);
+    if (!col) return 'Visvesvaraya Technological University (VTU)';
+    return col.university || 'Visvesvaraya Technological University (VTU)';
+  };
+
+  CurriculumService.getUniversities = function () {
+    return universities;
+  };
+
+  /**
+   * 5. Get Courses for selected college
    */
   CurriculumService.getCourses = function (collegeId) {
     var col = CurriculumService.getCollegeById(collegeId);
@@ -125,17 +136,15 @@
   };
 
   /**
-   * Get branches available for selected college and course (Requirement #6)
+   * 6. Get Branches for selected college & course
    */
   CurriculumService.getBranches = function (collegeId, course) {
     course = course || 'B.E.';
-    // Retrieve list of branches tailored to course
-    var standardBranches = BRANCH_DEFINITIONS[course] || BRANCH_DEFINITIONS['B.E.'];
-    return standardBranches;
+    return BRANCH_DEFINITIONS[course] || BRANCH_DEFINITIONS['B.E.'];
   };
 
   /**
-   * Get applicable schemes for college, course, and branch (Requirement #7)
+   * 7. Get Schemes for selected college & program
    */
   CurriculumService.getSchemes = function (collegeId, course, branch) {
     var col = CurriculumService.getCollegeById(collegeId);
@@ -146,7 +155,14 @@
   };
 
   /**
-   * Get Academic Years (Requirement #8)
+   * 8. Get Academic Years
+   */
+  CurriculumService.getAcademicYears = function () {
+    return ['2024-2025', '2023-2024', '2025-2026'];
+  };
+
+  /**
+   * 9. Get Years
    */
   CurriculumService.getYears = function (collegeId, course) {
     if (course === 'MCA' || course === 'MBA' || course === 'M.Tech') {
@@ -156,7 +172,7 @@
   };
 
   /**
-   * Get Semesters corresponding to Year (Requirement #8)
+   * 10. Get Semesters corresponding to Year
    */
   CurriculumService.getSemesters = function (year) {
     switch (year) {
@@ -174,12 +190,11 @@
   };
 
   /**
-   * Find verified official curriculum matching exact selection
-   * (Requirement #9, #10, #13, #25, #26)
+   * Automatic Official Subject Discovery
    */
   CurriculumService.getCurriculum = function (collegeId, course, branch, scheme, semester) {
     if (!collegeId || !course || !branch || !scheme || !semester) {
-      return { found: false, message: 'Incomplete selection parameters.' };
+      return { found: false, message: 'Incomplete academic selection.' };
     }
 
     var col = CurriculumService.getCollegeById(collegeId);
@@ -194,8 +209,8 @@
              cur.semester === semester;
     });
 
-    // 2. If college is VTU affiliated and follows VTU central curriculum
-    if (!match && col && !col.autonomous && targetUnivId === 'vtu') {
+    // 2. VTU affiliated central curriculum match
+    if (!match && col && !col.autonomous) {
       match = curricula.find(function (cur) {
         return (cur.collegeId === 'dsatm' || cur.universityId === 'vtu') &&
                cur.course === course &&
@@ -209,8 +224,10 @@
       return {
         found: true,
         isOfficial: true,
-        collegeName: col ? col.name : 'VTU Affiliated Institution',
+        collegeName: col ? col.name : 'VTU Affiliated College',
         shortName: col ? col.shortName : 'VTU',
+        university: col ? col.university : 'VTU',
+        district: col ? col.district : 'Karnataka',
         course: match.course,
         branch: match.branch,
         scheme: match.scheme,
@@ -224,58 +241,17 @@
       };
     }
 
-    // Official curriculum not available yet fallback (Requirement #13 & #26)
+    // Official curriculum not found fallback
     return {
       found: false,
       isOfficial: false,
-      message: 'Official curriculum not available yet for this specific selection.',
+      message: 'Official curriculum data is not available yet.',
       fallbackAvailable: true,
       collegeName: col ? col.name : collegeId,
       course: course,
       branch: branch,
       scheme: scheme,
       semester: semester
-    };
-  };
-
-  /**
-   * Get Attendance Rule for institution / program (Requirement #16)
-   */
-  CurriculumService.getAttendanceRule = function (collegeId, course, branch, scheme) {
-    var col = CurriculumService.getCollegeById(collegeId);
-    if (!col) {
-      return {
-        isVerified: false,
-        minimumAttendance: 75,
-        theoryMinimum: 75,
-        labMinimum: 75,
-        condonationRules: 'Standard advisory: Verify your college official notice.',
-        notice: 'Attendance requirement not verified — please confirm your college rule.'
-      };
-    }
-
-    if (col.autonomous) {
-      return {
-        isVerified: true,
-        minimumAttendance: 85,
-        theoryMinimum: 85,
-        labMinimum: 85,
-        condonationRules: col.name + ' Autonomous Academic Council: 85% attendance required for examination eligibility.',
-        sourceUrl: col.officialWebsite,
-        verifiedDate: col.lastVerifiedDate || '2024-09-15',
-        notice: 'Verified Autonomous Institution Rule'
-      };
-    }
-
-    return {
-      isVerified: true,
-      minimumAttendance: 75,
-      theoryMinimum: 75,
-      labMinimum: 75,
-      condonationRules: 'VTU Academic Regulation (Section 8): 75% minimum required in theory and lab separately. Up to 10% condonation permitted on certified medical grounds.',
-      sourceUrl: 'https://vtu.ac.in',
-      verifiedDate: '2024-09-15',
-      notice: 'Verified VTU Regulation'
     };
   };
 

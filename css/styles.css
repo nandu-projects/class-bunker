@@ -1740,3 +1740,287 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 }
 
+/* ============================================================
+   ATTENDANCE INPUT CHOICE & OCR CONFIRMATION STYLES
+   ============================================================ */
+
+.input-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+@media (min-width: 580px) {
+  .input-choice-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.input-choice-card {
+  background: var(--bg-card);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.input-choice-card:hover {
+  border-color: var(--brand-primary);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+.input-choice-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.input-choice-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.input-choice-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* OCR Upload Dropzone */
+.ocr-dropzone {
+  border: 2px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  margin-bottom: 1rem;
+}
+
+.ocr-dropzone:hover, .ocr-dropzone.dragover {
+  border-color: var(--brand-primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.ocr-dropzone-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  color: var(--brand-primary);
+}
+
+/* OCR Editable Confirmation Table */
+.ocr-table-container {
+  overflow-x: auto;
+  margin-top: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  max-height: 320px;
+}
+
+.ocr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.ocr-table th, .ocr-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ocr-table th {
+  background: var(--bg-tertiary);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.ocr-table input[type="number"] {
+  width: 75px;
+  padding: 0.35rem 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ocr-table tr.low-confidence {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.ocr-table tr.low-confidence input {
+  border-color: var(--color-warning);
+}
+
+/* Manual Attendance Batch Entry Form */
+.manual-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.manual-entry-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 580px) {
+  .manual-entry-item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.manual-entry-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.manual-input-pair {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.manual-input-pair input {
+  width: 70px;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ============================================================
+   TODAY'S DECISION ("WHAT IF I MISS TODAY?") WIDGET STYLES
+   ============================================================ */
+
+.today-decision-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.today-decision-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.today-decision-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.today-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .today-grid {
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
+
+.today-outcome-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.decision-badge-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.25rem;
+  font-weight: 900;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-full);
+}
+
+.decision-badge-large.yes {
+  background: var(--color-safe-bg);
+  color: var(--color-safe);
+  border: 2px solid var(--color-safe);
+}
+
+.decision-badge-large.no {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 2px solid var(--color-danger);
+}
+
+.today-comparison-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.today-stat-tile {
+  background: var(--bg-card);
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.today-stat-tile .tile-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.today-stat-tile .tile-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-top: 0.15rem;
+}
+
+

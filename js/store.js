@@ -316,6 +316,44 @@
     return updated;
   };
 
+  /**
+   * Batch update attendance for multiple subjects (e.g. from OCR or batch manual entry)
+   */
+  ClassBunkerStore.prototype.batchUpdateAttendance = function (updates) {
+    if (!Array.isArray(updates) || updates.length === 0) return 0;
+    var self = this;
+    var count = 0;
+
+    updates.forEach(function (up) {
+      if (!up) return;
+      var sub = self.state.subjects.find(function (s) {
+        if (up.id && s.id === up.id) return true;
+        if (up.code && s.code && s.code.toLowerCase() === up.code.toLowerCase()) return true;
+        if (up.name && s.name && s.name.toLowerCase() === up.name.toLowerCase()) return true;
+        return false;
+      });
+
+      if (sub) {
+        if (typeof up.attended === 'number' && !isNaN(up.attended)) {
+          sub.attended = Math.max(0, parseInt(up.attended, 10));
+        }
+        if (typeof up.conducted === 'number' && !isNaN(up.conducted)) {
+          sub.conducted = Math.max(0, parseInt(up.conducted, 10));
+        }
+        if (sub.attended > sub.conducted) {
+          sub.conducted = sub.attended;
+        }
+        sub.updatedAt = new Date().toISOString();
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      this.save();
+    }
+    return count;
+  };
+
   ClassBunkerStore.prototype.deleteSubject = function (id) {
     var before = this.state.subjects.length;
     this.state.subjects = this.state.subjects.filter(function (s) { return s.id !== id; });
