@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Class Bunker — Bunk smart. Stay eligible.</title>
+  <meta name="description" content="Class Bunker is the universal attendance-planning application for college students. Know exactly how many classes you can safely miss while remaining eligible.">
+  <meta name="theme-color" content="#0a0e17">
+
+  <!-- Favicon SVG -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><path d='M25 70 L50 25 L75 70 Z' fill='white'/><circle cx='50' cy='52' r='8' fill='%236366f1'/></svg>">
+
+  <!-- Core Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header" role="banner">
+    <a href="#" class="brand-wrapper" data-view="dashboard" aria-label="Class Bunker Home">
+      <div class="brand-logo-icon" aria-hidden="true">CB</div>
+      <div class="brand-text">
+        <h1>Class Bunker</h1>
+        <span class="brand-tagline-mini">Bunk smart. Stay eligible.</span>
+      </div>
+    </a>
+
+    <!-- Desktop Navigation -->
+    <nav class="desktop-nav" role="navigation" aria-label="Main Navigation">
+      <button class="nav-link" data-view="dashboard" aria-label="Dashboard">
+        <span>📊</span> Dashboard
+      </button>
+      <button class="nav-link" data-view="subjects" aria-label="Subjects">
+        <span>📚</span> Subjects
+      </button>
+      <button class="nav-link" data-view="simulator" aria-label="What-If Simulator">
+        <span>🎲</span> Simulator
+      </button>
+      <button class="nav-link" data-view="calculator" aria-label="Recovery Calculator">
+        <span>🧮</span> Calculator
+      </button>
+      <button class="nav-link" data-view="settings" aria-label="Settings">
+        <span>⚙️</span> Settings
+      </button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button class="btn btn-primary btn-sm" id="header-btn-add-subject" aria-label="Add Subject">
+        <span>+</span> Add Subject
+      </button>
+      <button class="btn-icon" id="theme-toggle-btn" aria-label="Toggle Light and Dark Mode" title="Toggle theme">
+        <span id="theme-icon">☀️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="app-main" role="main">
+
+    <!-- 1. LANDING / MARKETING VIEW (#13) -->
+    <section id="view-landing" class="view-section">
+      <div class="landing-hero">
+        <div class="landing-badge">
+          <span>🛡️</span> Universal College Attendance Planner
+        </div>
+        <h1>
+          Bunk smart. <br>
+          <span class="gradient-text">Stay eligible.</span>
+        </h1>
+        <p>
+          Track your attendance, calculate exactly how many classes you can miss, and plan your semester without putting your attendance at risk.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-lg" id="landing-btn-calc" style="font-size:1.05rem; padding:0.75rem 1.75rem;">
+            <span>🚀</span> Calculate My Attendance
+          </button>
+          <button class="btn btn-secondary btn-lg" id="landing-btn-demo" style="font-size:1.05rem; padding:0.75rem 1.75rem;">
+            <span>🎓</span> Try DSATM Demo
+          </button>
+        </div>
+
+        <!-- Quick feature grid -->
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <h3>Know Safe Bunks</h3>
+            <p>Get the mathematically exact integer of classes you can miss while staying safely at or above your required threshold.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🎲</div>
+            <h3>What-If Simulator</h3>
+            <p>Simulate missing 1, 2, 3, 5, or custom classes before bunking to see live projected attendance drops.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Recovery Roadmaps</h3>
+            <p>Calculate exactly how many consecutive classes you must attend without missing to recover from low attendance.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📚</div>
+            <h3>Track Every Subject</h3>
+            <p>Add unlimited subjects, separate theory and lab thresholds, and log classes with one-tap quick steppers.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🏛️</div>
+            <h3>Works With Any College</h3>
+            <p>Universal calculation engine works for 75%, 80%, 85%, or any custom college rule worldwide (DSATM included as demo).</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>100% Private & Offline</h3>
+            <p>No account, no USN, and no portal passwords required. All data persists safely in your local browser storage.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. MAIN DASHBOARD VIEW (#3, #14, #15, #17, #26) -->
+    <section id="view-dashboard" class="view-section">
+      <!-- College details strip -->
+      <div id="college-info-strip" class="college-info-strip"></div>
+
+      <!-- Primary Answer Hero Card (#14) -->
+      <div id="dashboard-bunk-hero" class="bunk-hero-card" aria-live="polite">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Official Disclaimer (#26) -->
+      <div class="disclaimer-banner" role="note">
+        <span class="disclaimer-icon">ℹ️</span>
+        <div>
+          <strong>Official Advisory:</strong> Based on the attendance data and minimum percentage you entered, you can miss the displayed classes while remaining at or above the selected threshold. Verify your college's official attendance regulations.
+        </div>
+      </div>
+
+      <!-- High-level Stats Grid -->
+      <div id="dashboard-stats" class="dashboard-grid">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Subjects Quick View Section -->
+      <div class="section-header">
+        <h2 class="section-title">
+          <span>📚</span> Subject Attendance Overview
+        </h2>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-secondary btn-sm" data-view="subjects">View All Subjects &rarr;</button>
+        </div>
+      </div>
+
+      <div id="dashboard-subjects-list">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- 3. SUBJECTS MANAGEMENT VIEW (#4, #16) -->
+    <section id="view-subjects" class="view-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>📚</span> Subject Management
+          </h2>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Add, update, or quick-mark your daily attendance.
+          </p>
+        </div>
+        <button class="btn btn-primary" id="btn-subjects-add-subject">
+          <span>+</span> Add Subject
+        </button>
+      </div>
+
+      <!-- Filter Chips -->
+      <div class="filter-chips" role="tablist" style="margin-bottom: 1.25rem;">
+        <button class="filter-chip active" data-filter="all">All Subjects</button>
+        <button class="filter-chip" data-filter="safe">🟢 Safe</button>
+        <button class="filter-chip" data-filter="warning">🟡 Near Limit</button>
+        <button class="filter-chip" data-filter="below">🔴 Below Requirement</button>
+      </div>
+
+      <!-- Subject Cards Grid -->
+      <div id="subjects-grid" class="subject-grid">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Full Table View Toggle -->
+      <div style="margin-top: 2.5rem;">
+        <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:0.75rem;">
+          <span>📋</span> Detailed Subject Table
+        </h3>
+        <div class="table-responsive-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Attended</th>
+                <th>Conducted</th>
+                <th>Attendance %</th>
+                <th>Required</th>
+                <th>Can Miss</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="subjects-table-body">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. WHAT-IF / BUNK SIMULATOR VIEW (#6) -->
+    <section id="view-simulator" class="view-section">
+      <div class="tool-card">
+        <h2><span>🎲</span> What-If / Bunk Simulator</h2>
+        <p class="tool-card-desc">
+          Test future scenarios before bunking. See the immediate impact on your attendance percentage and eligibility status.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label" for="sim-subject-select">Select Target Subject</label>
+            <select id="sim-subject-select" class="form-select">
+              <option value="overall">Overall (All Subjects Combined)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Simulation Mode</label>
+            <div style="display:flex; gap:0.5rem;">
+              <button class="preset-chip active" id="btn-sim-mode-miss" style="flex:1; text-align:center;">
+                ❌ What if I MISS classes?
+              </button>
+              <button class="preset-chip" id="btn-sim-mode-attend" style="flex:1; text-align:center;">
+                ✅ What if I ATTEND classes?
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Number of Classes to Simulate</label>
+            <div class="preset-chip-group">
+              <button class="preset-chip sim-preset-chip active" data-count="1">1 Class</button>
+              <button class="preset-chip sim-preset-chip" data-count="2">2 Classes</button>
+              <button class="preset-chip sim-preset-chip" data-count="3">3 Classes</button>
+              <button class="preset-chip sim-preset-chip" data-count="5">5 Classes</button>
+              <button class="preset-chip sim-preset-chip" data-count="10">10 Classes</button>
+            </div>
+            <div style="margin-top:0.75rem;">
+              <input type="number" id="sim-count-input" class="form-input" min="1" max="100" value="1" placeholder="Custom number of classes">
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Projection Result Box -->
+        <div id="sim-result-box" class="sim-result-box">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. RECOVERY CALCULATOR & TARGET MATRIX VIEW (#7, #8) -->
+    <section id="view-calculator" class="view-section">
+      <!-- Recovery Calculator -->
+      <div class="tool-card">
+        <h2><span>⚡</span> Attendance Recovery Calculator</h2>
+        <p class="tool-card-desc">
+          Fell below your required percentage? Calculate the exact number of consecutive classes you must attend to restore eligibility.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="recovery-subject-select">Target Subject</label>
+            <select id="recovery-subject-select" class="form-select">
+              <option value="overall">Overall Attendance</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="recovery-target-select">Desired Target Percentage</label>
+            <select id="recovery-target-select" class="form-select">
+              <option value="75">75% (Standard Minimum)</option>
+              <option value="80">80% (Safe Buffer)</option>
+              <option value="85">85% (High Standing)</option>
+              <option value="90">90% (Distinction)</option>
+              <option value="custom">Custom Target %...</option>
+            </select>
+            <input type="number" id="recovery-custom-input" class="form-input hidden" min="1" max="100" value="75" placeholder="Enter custom target %" style="margin-top:0.5rem;">
+          </div>
+        </div>
+
+        <!-- Result Banner -->
+        <div id="recovery-result-banner" style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:1.25rem; margin-top:1rem;">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Projected Milestones Grid -->
+        <div style="margin-top: 1.5rem;">
+          <h4 style="font-size:0.9rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">
+            Projected Attendance Progression
+          </h4>
+          <div id="recovery-milestones-grid" class="milestones-grid">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Target Matrix (#8) -->
+      <div class="tool-card">
+        <h2><span>🎯</span> Attendance Target Matrix</h2>
+        <p class="tool-card-desc">
+          Plan multiple attendance goals at once. Compare how many classes you can miss or must attend for 75%, 80%, 85%, and 90%.
+        </p>
+
+        <div class="form-group" style="max-width:320px;">
+          <label class="form-label" for="matrix-subject-select">Evaluate For</label>
+          <select id="matrix-subject-select" class="form-select">
+            <option value="overall">Overall Attendance</option>
+          </select>
+        </div>
+
+        <div id="target-matrix-grid" class="target-matrix-grid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. SETTINGS VIEW (#9, #10, #18, #19) -->
+    <section id="view-settings" class="view-section">
+      <div class="tool-card">
+        <h2><span>🏛️</span> College Profile & Rules</h2>
+        <p class="tool-card-desc">
+          Customize your institution's name and attendance requirements. Works universally for any university or college.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr; gap:1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <span style="font-size:0.85rem; color:var(--text-muted);">Looking for sample data?</span>
+            <button class="btn btn-secondary btn-sm" id="btn-settings-load-demo">Load DSATM Demo Configuration</button>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="setting-college-name">College / University Name</label>
+              <input type="text" id="setting-college-name" class="form-input" placeholder="e.g. Dayananda Sagar Academy of Technology and Management">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-college-abbr">Abbreviation</label>
+              <input type="text" id="setting-college-abbr" class="form-input" placeholder="e.g. DSATM">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="setting-course">Course / Degree</label>
+              <input type="text" id="setting-course" class="form-input" placeholder="e.g. B.E. / B.Tech">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-branch">Branch / Department</label>
+              <input type="text" id="setting-branch" class="form-input" placeholder="e.g. CSE / ISE / ECE">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-semester">Semester</label>
+              <input type="text" id="setting-semester" class="form-input" placeholder="e.g. 5th Semester">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="setting-min-attendance">Theory Minimum Requirement (%)</label>
+              <input type="number" id="setting-min-attendance" class="form-input" min="1" max="100" value="75">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-lab-attendance">Lab Minimum Requirement (%)</label>
+              <input type="number" id="setting-lab-attendance" class="form-input" min="1" max="100" value="80">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-condonation-notes">Condonation / Medical Exemption Policy</label>
+            <textarea id="setting-condonation-notes" class="form-textarea" rows="2" placeholder="e.g. Up to 10% condonation permitted on certified medical grounds."></textarea>
+          </div>
+
+          <div>
+            <button class="btn btn-primary" id="btn-save-settings-rules">Save College Rules</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import / Export Section (#19) -->
+      <div class="tool-card">
+        <h2><span>💾</span> Data Backup & Portability</h2>
+        <p class="tool-card-desc">
+          Your attendance records are stored locally in your browser. Export backups as JSON or spreadsheets as CSV.
+        </p>
+
+        <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
+          <button class="btn btn-secondary" id="btn-export-json">
+            <span>📥</span> Export JSON Backup
+          </button>
+          <button class="btn btn-secondary" id="btn-export-csv">
+            <span>📊</span> Export CSV Spreadsheet
+          </button>
+          <button class="btn btn-secondary" id="btn-trigger-import-json">
+            <span>📤</span> Import JSON Backup
+          </button>
+          <input type="file" id="json-file-input" accept=".json" class="hidden">
+        </div>
+
+        <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border-subtle);">
+          <h3 style="font-size:1.05rem; font-weight:700; color:var(--color-danger); margin-bottom:0.35rem;">
+            ⚠️ Reset Application
+          </h3>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">
+            Wipe all subjects, college records, and start completely fresh.
+          </p>
+          <button class="btn btn-danger btn-sm" id="btn-clear-all-data">
+            Clear All Data & Reset
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar (#21) -->
+  <nav class="mobile-nav-bar" role="navigation" aria-label="Mobile Navigation">
+    <button class="mobile-nav-btn active" data-view="dashboard">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <button class="mobile-nav-btn" data-view="subjects">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+      </svg>
+      <span>Subjects</span>
+    </button>
+    <button class="mobile-nav-btn" data-view="simulator">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>Simulator</span>
+    </button>
+    <button class="mobile-nav-btn" data-view="calculator">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>
+      <span>Recovery</span>
+    </button>
+    <button class="mobile-nav-btn" data-view="settings">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Application Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>
+        <strong>Class Bunker</strong> — Universal Attendance Planning. Built for college students everywhere.
+      </div>
+      <div style="font-size:0.8rem; color:var(--text-muted);">
+        Always cross-verify your institution's official eligibility notices.
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Add / Edit Subject Modal (#4) -->
+  <div id="modal-subject" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="subject-modal-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="subject-modal-title" class="modal-title">Add New Subject</h3>
+        <button class="tool-icon-btn" data-dismiss="modal" aria-label="Close modal">✕</button>
+      </div>
+      <form id="form-subject">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="input-subject-name">Subject Name *</label>
+            <input type="text" id="input-subject-name" class="form-input" placeholder="e.g. Operating Systems" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-subject-code">Course / Subject Code (Optional)</label>
+            <input type="text" id="input-subject-code" class="form-input" placeholder="e.g. 21CS51">
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="input-subject-attended">Classes Attended *</label>
+              <input type="number" id="input-subject-attended" class="form-input" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-subject-conducted">Classes Conducted *</label>
+              <input type="number" id="input-subject-conducted" class="form-input" min="0" value="0" required>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="input-subject-req">Minimum Required % *</label>
+              <input type="number" id="input-subject-req" class="form-input" min="1" max="100" value="75" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-subject-target">Target Attendance %</label>
+              <input type="number" id="input-subject-target" class="form-input" min="1" max="100" value="80">
+            </div>
+          </div>
+
+          <div class="form-group" style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+            <input type="checkbox" id="input-subject-lab" style="width:18px; height:18px;">
+            <label for="input-subject-lab" style="font-size:0.9rem; font-weight:600; cursor:pointer;">
+              This is a Laboratory / Practical Course
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-subject-notes">Notes / Faculty remarks (Optional)</label>
+            <input type="text" id="input-subject-notes" class="form-input" placeholder="e.g. Strict faculty, takes attendance in first 5 mins">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-subject">Save Subject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Quick Edit College Modal (#9, #10) -->
+  <div id="modal-college" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit College & Rules</h3>
+        <button class="tool-icon-btn" data-dismiss="modal" aria-label="Close modal">✕</button>
+      </div>
+      <form id="form-college">
+        <div class="modal-body">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-preset-dsatm">
+              Load DSATM Preset
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="college-input-name">College Name</label>
+            <input type="text" id="college-input-name" class="form-input" placeholder="e.g. Dayananda Sagar Academy of Technology and Management">
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="college-input-abbr">Abbreviation</label>
+              <input type="text" id="college-input-abbr" class="form-input" placeholder="e.g. DSATM">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="college-input-university">Affiliated University</label>
+              <input type="text" id="college-input-university" class="form-input" placeholder="e.g. VTU">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="college-input-course">Course</label>
+              <input type="text" id="college-input-course" class="form-input" placeholder="e.g. B.E.">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="college-input-branch">Branch</label>
+              <input type="text" id="college-input-branch" class="form-input" placeholder="e.g. CSE">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="college-input-sem">Semester</label>
+              <input type="text" id="college-input-sem" class="form-input" placeholder="e.g. 5th">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="college-input-min">Minimum Attendance Requirement (%) *</label>
+            <input type="number" id="college-input-min" class="form-input" min="1" max="100" value="75" required>
+            <small style="color:var(--text-muted); font-size:0.75rem;">Default is 75%, change if your university enforces a different rule.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="college-input-condonation">Condonation / Medical Rule</label>
+            <input type="text" id="college-input-condonation" class="form-input" placeholder="e.g. 10% condonation with medical certificate">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update Rules</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Onboarding Wizard Modal (#12) -->
+  <div id="modal-onboarding" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Welcome to Class Bunker 🚀</h3>
+        <button class="tool-icon-btn" id="wizard-skip" aria-label="Skip onboarding">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="wizard-progress">
+          <div class="wizard-progress-bar completed" id="wizard-bar-1"></div>
+          <div class="wizard-progress-bar" id="wizard-bar-2"></div>
+          <div class="wizard-progress-bar" id="wizard-bar-3"></div>
+          <div class="wizard-progress-bar" id="wizard-bar-4"></div>
+        </div>
+
+        <!-- Step 1: Welcome -->
+        <div id="wizard-step-1" class="wizard-step active">
+          <h4 style="font-size:1.25rem; font-weight:800; margin-bottom:0.5rem;">Bunk smart. Stay eligible.</h4>
+          <p style="color:var(--text-secondary); margin-bottom:1.25rem; font-size:0.95rem;">
+            Class Bunker is designed to answer one crucial question with mathematical precision: <strong>"How many classes can I safely miss while remaining above my required attendance percentage?"</strong>
+          </p>
+          <div style="background:var(--bg-tertiary); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.5rem;">
+            <p style="font-size:0.85rem; color:var(--text-secondary);">
+              ✨ Works for any college, university, semester, or course worldwide.
+            </p>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <button class="btn btn-secondary" id="wizard-load-demo">Try DSATM Demo</button>
+            <button class="btn btn-primary" id="wizard-next-1">Get Started &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 2: College Setup -->
+        <div id="wizard-step-2" class="wizard-step">
+          <h4 style="font-size:1.15rem; font-weight:800; margin-bottom:0.5rem;">College Information</h4>
+          <p style="color:var(--text-secondary); margin-bottom:1rem; font-size:0.85rem;">
+            Enter your college details or select our preconfigured sample:
+          </p>
+          <div style="margin-bottom:1rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="wiz-select-dsatm">
+              🏛️ Use DSATM Preconfiguration
+            </button>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="wiz-college-name">College / Institute Name</label>
+            <input type="text" id="wiz-college-name" class="form-input" placeholder="e.g. Dayananda Sagar Academy of Technology & Management">
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+            <div class="form-group">
+              <label class="form-label" for="wiz-course">Course & Branch</label>
+              <input type="text" id="wiz-course" class="form-input" placeholder="e.g. B.E. Computer Science">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="wiz-sem">Semester</label>
+              <input type="text" id="wiz-sem" class="form-input" placeholder="e.g. 5th Sem">
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn btn-primary" id="wizard-next-2">Next &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Attendance Rule -->
+        <div id="wizard-step-3" class="wizard-step">
+          <h4 style="font-size:1.15rem; font-weight:800; margin-bottom:0.5rem;">Minimum Attendance Requirement</h4>
+          <p style="color:var(--text-secondary); margin-bottom:1rem; font-size:0.85rem;">
+            Most colleges mandate 75%, but you can set this to whatever your syllabus requires (e.g. 80% or 85%).
+          </p>
+          <div class="form-group">
+            <label class="form-label" for="wiz-min-req">Minimum Requirement Percentage (%)</label>
+            <input type="number" id="wiz-min-req" class="form-input" min="1" max="100" value="75">
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:1.5rem;">
+            <button class="btn btn-primary" id="wizard-next-3">Next &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Finished -->
+        <div id="wizard-step-4" class="wizard-step">
+          <h4 style="font-size:1.15rem; font-weight:800; margin-bottom:0.5rem;">Ready to Track Your Classes! 🎉</h4>
+          <p style="color:var(--text-secondary); margin-bottom:1.5rem; font-size:0.85rem;">
+            Your profile is configured. You can now add your subjects one by one, or explore the dashboard right away.
+          </p>
+          <div style="display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
+            <button class="btn btn-secondary" id="wizard-finish">Go to Dashboard</button>
+            <button class="btn btn-primary" id="wizard-add-sub">+ Add First Subject</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="assertive"></div>
+
+  <!-- Scripts -->
+  <script src="js/engine.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
