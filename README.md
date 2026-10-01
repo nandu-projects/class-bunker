@@ -101,9 +101,108 @@ class-bunker/
 ├── manifest.json                  # PWA Web App Manifest
 ├── sw.js                          # Service Worker for offline shell caching
 ├── server.py                      # Local development & production static server
+├── capacitor.config.json          # Capacitor native runtime configuration
+├── package.json                   # NPM dependencies and Android build scripts
+├── scripts/
+│   ├── prepare-www.js             # Web build bundler for Capacitor
+│   └── generate_android_assets.py # Launcher icons & splash screens generator
+├── android/                       # Native Android project (Capacitor)
+│   ├── app/
+│   │   ├── build.gradle           # Native app dependencies, targetSdk 35, Java 17
+│   │   └── src/main/              # AndroidManifest.xml, res/ (icons, splash, colors)
+│   └── build.gradle               # Root project Gradle configuration
 ├── .gitignore                     # Git ignore rules
 └── README.md                      # Documentation
 ```
+
+---
+
+## 📱 Android App Packaging (Capacitor)
+
+Class Bunker uses **Capacitor** to bridge the production web codebase into a first-class native Android application. The single codebase produces both the web/PWA and native Android builds.
+
+* **App ID**: `com.classbunker.app`
+* **App Display Name**: `Class Bunker`
+* **Target Android SDK**: `35` (Android 15)
+* **Minimum Android SDK**: `23` (Android 6.0+)
+* **Java Version**: JDK 17+
+
+### 🛠️ Native Features Configured
+1. **Adaptive App Icons**: Multi-density launcher icons (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) with circular, square, and adaptive foreground/background XML drawables.
+2. **Splash Screen**: Portrait and landscape splash screens configured with auto-hiding on DOM ready via `@capacitor/splash-screen`.
+3. **Adaptive Status Bar**: Automatically syncs background and icon colors with the student's selected theme (Light: `#ffffff` with dark icons; Dark: `#0d1117` with light icons) via `@capacitor/status-bar`.
+4. **Edge-to-Edge & Safe Area**: Configured with `viewport-fit=cover` and CSS `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` to properly avoid display notches, camera cutouts, and gesture navigation bars.
+5. **Hardware Back Button**: Native Android back button listener dismisses open dialogs/modals first, navigates subviews back to dashboard, and safely exits at root.
+6. **100% Offline Capable**: Zero college logins or passwords required. All calculation logic and curriculum databases are packaged locally.
+
+---
+
+### 📦 Building Android Artifacts
+
+Ensure Node.js 18+, JDK 17+, and Android SDK are installed and present in your environment `PATH`.
+
+#### 1. Sync Web Assets to Android
+```powershell
+npm run build:web
+npm run cap:sync
+```
+
+#### 2. Generate Debug APK
+To build a debug APK for direct testing on any connected Android device or emulator:
+```powershell
+npm run android:debug
+# Or directly via Gradle:
+cd android; .\gradlew assembleDebug
+```
+**Output Location:**
+```
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+*Direct install via ADB:*
+```powershell
+adb install android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+#### 3. Generate Release APK (Unsigned)
+To build an optimized release APK:
+```powershell
+npm run android:release
+# Or directly via Gradle:
+cd android; .\gradlew assembleRelease
+```
+**Output Location:**
+```
+android/app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+#### 4. Generate Android App Bundle (AAB) for Google Play
+To build a production AAB package for the Google Play Console:
+```powershell
+npm run android:bundle
+# Or directly via Gradle:
+cd android; .\gradlew bundleRelease
+```
+**Output Location:**
+```
+android/app/build/outputs/bundle/release/app-release.aab
+```
+
+---
+
+### 🔑 Signing Release Builds for Distribution
+
+To sign the release APK or AAB for Google Play Store or public distribution:
+
+1. **Generate a signing keystore** (if you don't already have one):
+   ```bash
+   keytool -genkey -v -keystore classbunker-release.jks -alias classbunker -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. **Sign the APK with `apksigner`**:
+   ```bash
+   zipalign -v -p 4 android/app/build/outputs/apk/release/app-release-unsigned.apk class-bunker-aligned.apk
+   apksigner sign --ks classbunker-release.jks --ks-key-alias classbunker --out class-bunker-release.apk class-bunker-aligned.apk
+   ```
+   Or configure signing credentials in `android/app/build.gradle` using environment variables.
 
 ---
 

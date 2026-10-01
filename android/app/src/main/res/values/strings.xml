@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Class Bunker</string>
+    <string name="title_activity_main">Class Bunker</string>
+    <string name="package_name">com.classbunker.app</string>
+    <string name="custom_url_scheme">com.classbunker.app</string>
+</resources>

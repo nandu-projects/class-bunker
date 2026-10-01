@@ -1,0 +1,36 @@
+{
+  "name": "class-bunker",
+  "version": "2.0.0",
+  "description": "Class Bunker - Universal College Attendance Planning & Bunk Calculator",
+  "main": "index.html",
+  "scripts": {
+    "start": "python server.py",
+    "test": "python tests/test_engine.py && python tests/test_curriculum.py && python tests/test_v2_integration.py",
+    "build:web": "node scripts/prepare-www.js",
+    "cap:sync": "node scripts/prepare-www.js && cap sync android",
+    "cap:copy": "node scripts/prepare-www.js && cap copy android",
+    "cap:open": "cap open android",
+    "generate:assets": "python scripts/generate_android_assets.py",
+    "android:debug": "node scripts/prepare-www.js && cap copy android && cd android && gradlew.bat assembleDebug",
+    "android:release": "node scripts/prepare-www.js && cap copy android && cd android && gradlew.bat assembleRelease",
+    "android:bundle": "node scripts/prepare-www.js && cap copy android && cd android && gradlew.bat bundleRelease"
+  },
+  "keywords": [
+    "attendance",
+    "bunk-calculator",
+    "college",
+    "vtu",
+    "capacitor",
+    "android"
+  ],
+  "author": "nandu-projects",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^7.6.9",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  }
+}

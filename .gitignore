@@ -64,3 +64,15 @@ yarn-error.log*
 
 # Logs
 *.log
+
+# Android & Gradle
+.gradle/
+build/
+android/app/build/
+android/build/
+android/**/build/
+android/local.properties
+android/.gradle/
+*.apk
+*.aab
+www/

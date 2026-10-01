@@ -151,6 +151,7 @@
     if (dom.themeIcon) {
       dom.themeIcon.textContent = theme === 'light' ? '🌙' : '☀️';
     }
+    updateNativeStatusBar(theme);
   }
 
   function toggleTheme() {
@@ -1991,6 +1992,75 @@
     }
   }
 
+  // =========================================================================
+  // CAPACITOR & ANDROID NATIVE INTEGRATION (#7, #8, #11)
+  // =========================================================================
+
+  function handleAndroidBackButton() {
+    // 1. If any modal is active, close the top modal
+    var activeModals = document.querySelectorAll('.modal-overlay.active');
+    if (activeModals && activeModals.length > 0) {
+      var topModal = activeModals[activeModals.length - 1];
+      topModal.classList.remove('active');
+      return true;
+    }
+
+    // 2. If inside a subview, return to main dashboard
+    if (activeView !== 'dashboard' && activeView !== 'landing') {
+      navigateTo('dashboard');
+      return true;
+    }
+
+    // 3. If on dashboard, allow native exit
+    return false;
+  }
+
+  function updateNativeStatusBar(theme) {
+    var Cap = window.Capacitor;
+    if (Cap && Cap.Plugins && Cap.Plugins.StatusBar) {
+      try {
+        var isLight = theme === 'light';
+        Cap.Plugins.StatusBar.setBackgroundColor({
+          color: isLight ? '#ffffff' : '#0d1117'
+        });
+        Cap.Plugins.StatusBar.setStyle({
+          style: isLight ? 'LIGHT' : 'DARK'
+        });
+      } catch (err) {
+        console.warn('StatusBar update notice:', err);
+      }
+    }
+  }
+
+  function initCapacitorAndroid() {
+    var Cap = window.Capacitor;
+    if (!Cap) return;
+
+    // Register hardware back-button listener
+    if (Cap.Plugins && Cap.Plugins.App) {
+      Cap.Plugins.App.addListener('backButton', function () {
+        var handled = handleAndroidBackButton();
+        if (!handled) {
+          Cap.Plugins.App.exitApp();
+        }
+      });
+    }
+
+    // Configure status bar
+    updateNativeStatusBar(store.getSettings().theme || 'dark');
+
+    // Auto-hide native splash screen when app is interactive
+    if (Cap.Plugins && Cap.Plugins.SplashScreen) {
+      try {
+        setTimeout(function () {
+          Cap.Plugins.SplashScreen.hide();
+        }, 300);
+      } catch (err) {
+        console.warn('SplashScreen hide notice:', err);
+      }
+    }
+  }
+
   // App Initialization
   function init() {
     initDomElements();
@@ -2016,6 +2086,7 @@
     });
 
     setupEventListeners();
+    initCapacitorAndroid();
 
     var subjects = store.getSubjects();
     if (subjects.length > 0 || store.getSettings().hasCompletedOnboarding) {
@@ -2035,6 +2106,9 @@
       openManualEntryModal: openManualEntryModal,
       closeManualEntryModal: closeManualEntryModal,
       renderTodayDecision: renderTodayDecision,
+      handleAndroidBackButton: handleAndroidBackButton,
+      initCapacitorAndroid: initCapacitorAndroid,
+      updateNativeStatusBar: updateNativeStatusBar,
       openSubjectModal: openSubjectModal,
       closeSubjectModal: closeSubjectModal,
       navigateTo: navigateTo,
